@@ -13,7 +13,7 @@ from telegram import (
 )
 from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
-
+from config import OWNER_ID
 
 # ============================================================
 # LOGGER
@@ -31,8 +31,6 @@ logger = logging.getLogger(
 FSUB_CHANNEL = "@Aero_Unity"
 
 FSUB_INVITE_LINK = "https://t.me/Aero_Unity"
-
-OWNER_ID = 7284759394
 
 
 # ============================================================
