@@ -929,55 +929,6 @@ async def ott_command(
         except Exception:
             pass
 
-async def force_sub_callback_wrapper(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
-):
-    await force_sub_callback(
-        update,
-        context,
-    )
-
-    pending = context.user_data.pop(
-        "force_sub_pending",
-        None,
-    )
-
-    if not pending:
-        return
-
-    command = pending.get(
-        "command"
-    )
-
-    args = pending.get(
-        "args",
-        [],
-    )
-
-    logger.info(
-        "Executing pending command | "
-        "command=%s | args=%s",
-        command,
-        args,
-    )
-
-    # Recreate command arguments.
-    context.args = list(args)
-
-    if command == "poster":
-
-        await poster_command(
-            update,
-            context,
-        )
-
-    elif command == "ott":
-
-        await ott_command(
-            update,
-            context,
-        )
 # ------------------------- #
 # Don't Remove Credit
 # Owner @Mr_Mohammed_29
