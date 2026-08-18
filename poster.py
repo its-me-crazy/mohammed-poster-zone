@@ -14,7 +14,7 @@ from urllib.parse import urlparse
 import requests
 from bs4 import BeautifulSoup
 
-from PIL import Image, ImageDraw, ImageFont, ImageFilter
+from PIL import Image, ImageDraw, ImageFont
 
 from config import (
     TMDB_API_KEY,
@@ -37,8 +37,6 @@ logger = logging.getLogger(
 
 TMDB_BASE = "https://api.themoviedb.org/3"
 
-# Smaller source image.
-# We don't use "original" anymore.
 IMAGE_BASE = (
     "https://image.tmdb.org/t/p/w780"
 )
@@ -67,6 +65,7 @@ def tmdb_get(
     endpoint: str,
     params: Optional[dict] = None,
 ):
+
     params = dict(params or {})
 
     if not TMDB_API_KEY:
@@ -84,6 +83,7 @@ def tmdb_get(
     )
 
     if response.status_code != 200:
+
         logger.error(
             "TMDB API error | status=%s | endpoint=%s | response=%s",
             response.status_code,
@@ -102,7 +102,9 @@ def tmdb_get(
 # Clean title
 # ------------------------- #
 
-def clean_title(title: str) -> str:
+def clean_title(
+    title: str
+) -> str:
 
     if not title:
         return ""
@@ -114,6 +116,7 @@ def clean_title(title: str) -> str:
     ).strip()
 
     suffixes = [
+
         r"\s*\|\s*Netflix$",
         r"\s*-\s*Netflix$",
 
@@ -122,6 +125,9 @@ def clean_title(title: str) -> str:
 
         r"\s*\|\s*Disney\+ Hotstar$",
         r"\s*-\s*Disney\+ Hotstar$",
+
+        r"\s*\|\s*JioStar$",
+        r"\s*-\s*JioStar$",
 
         r"\s*\|\s*SonyLIV$",
         r"\s*-\s*SonyLIV$",
@@ -194,6 +200,7 @@ def extract_title_from_url(
             )
 
             if content:
+
                 return clean_title(
                     content
                 )
@@ -213,6 +220,7 @@ def extract_title_from_url(
             )
 
             if content:
+
                 return clean_title(
                     content
                 )
@@ -226,6 +234,7 @@ def extract_title_from_url(
             )
 
             if title:
+
                 return clean_title(
                     title
                 )
@@ -382,6 +391,7 @@ def search_media(
         )
 
         if candidate:
+
             candidates.append(
                 candidate
             )
@@ -394,6 +404,7 @@ def search_media(
         )
 
         if candidate:
+
             candidates.append(
                 candidate
             )
@@ -424,6 +435,7 @@ def search_media(
             or original_title
             == normalized
         ):
+
             return candidate
 
     return candidates[0]
@@ -722,6 +734,7 @@ def get_season_poster(
         )
 
         if path:
+
             return image_url(
                 path
             )
@@ -870,7 +883,6 @@ def create_thumbnail(
 
         if source_ratio > target_ratio:
 
-            # Too wide
             new_height = target_height
 
             new_width = int(
@@ -880,7 +892,6 @@ def create_thumbnail(
 
         else:
 
-            # Too tall
             new_width = target_width
 
             new_height = int(
@@ -896,7 +907,10 @@ def create_thumbnail(
             Image.Resampling.LANCZOS,
         )
 
+        # ------------------------------------------
         # Center crop
+        # ------------------------------------------
+
         left = (
             new_width
             - target_width
@@ -917,7 +931,7 @@ def create_thumbnail(
         )
 
         # ------------------------------------------
-        # Slight dark overlay at bottom
+        # Dark bottom gradient
         # ------------------------------------------
 
         overlay = Image.new(
@@ -935,7 +949,7 @@ def create_thumbnail(
             overlay
         )
 
-        gradient_height = 260
+        gradient_height = 280
 
         for y in range(
             target_height
@@ -944,7 +958,7 @@ def create_thumbnail(
         ):
 
             alpha = int(
-                180
+                210
                 * (
                     y
                     - (
@@ -983,10 +997,12 @@ def create_thumbnail(
             source
         )
 
-        # Try common fonts
         font_paths = [
+
             "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-            "/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf",
+
+            "/usr/share/fonts/truetype/liberation2/"
+            "LiberationSans-Bold.ttf",
         ]
 
         font = None
@@ -1010,7 +1026,7 @@ def create_thumbnail(
             font = ImageFont.load_default()
 
         # ------------------------------------------
-        # Wrap title
+        # Clean title
         # ------------------------------------------
 
         clean = re.sub(
@@ -1053,6 +1069,7 @@ def create_thumbnail(
             else:
 
                 if current:
+
                     lines.append(
                         current
                     )
@@ -1060,23 +1077,25 @@ def create_thumbnail(
                 current = word
 
         if current:
+
             lines.append(
                 current
             )
 
+        # ------------------------------------------
         # Maximum 2 lines
+        # ------------------------------------------
+
         if len(lines) > 2:
+
+            middle = len(words) // 2
 
             lines = [
                 " ".join(
-                    words[
-                        :len(words)//2
-                    ]
+                    words[:middle]
                 ),
                 " ".join(
-                    words[
-                        len(words)//2:
-                    ]
+                    words[middle:]
                 ),
             ]
 
@@ -1118,8 +1137,8 @@ def create_thumbnail(
             # Shadow
             draw.text(
                 (
-                    x + 3,
-                    start_y + 3,
+                    x + 4,
+                    start_y + 4,
                 ),
                 line,
                 font=font,
@@ -1127,11 +1146,11 @@ def create_thumbnail(
                     0,
                     0,
                     0,
-                    220,
+                    230,
                 ),
             )
 
-            # Main text
+            # Main title
             draw.text(
                 (
                     x,
@@ -1177,7 +1196,7 @@ def create_thumbnail(
         return None
 
 # ==================================================
-# Caption
+# CAPTION
 # ==================================================
 
 def build_caption(
@@ -1186,23 +1205,174 @@ def build_caption(
     artwork,
 ):
 
-    current_type = html.escape(
-        artwork["type"]
+    # ------------------------------------------
+    # Current artwork
+    # ------------------------------------------
+
+    current_type = artwork.get(
+        "type",
+        "Poster",
     )
 
-    title = media_title(
-        media,
-        artwork.get("season"),
+    # ------------------------------------------
+    # Platform
+    # ------------------------------------------
+
+    platform = (
+        platform
+        or "Poster"
     )
 
     platform = html.escape(
         platform
     )
 
+    # ------------------------------------------
+    # Current artwork URL
+    # ------------------------------------------
+
+    current_url = artwork.get(
+        "url"
+    )
+
+    if current_url:
+
+        current_url = html.escape(
+            current_url,
+            quote=True,
+        )
+
+        platform_line = (
+            f"<b>{platform} Poster:</b> "
+            f"{current_url}"
+        )
+
+    else:
+
+        platform_line = (
+            f"<b>{platform} Poster:</b>"
+        )
+
+    # ------------------------------------------
+    # Get all artwork
+    # ------------------------------------------
+
+    try:
+
+        all_artwork = get_media_images(
+            media
+        )
+
+    except Exception:
+
+        logger.exception(
+            "Failed to get artwork "
+            "for caption"
+        )
+
+        all_artwork = []
+
+    # ------------------------------------------
+    # Find best link for each category
+    # ------------------------------------------
+
+    artwork_links = {
+        "Portrait": None,
+        "Cover": None,
+        "Logo": None,
+    }
+
+    for item in all_artwork:
+
+        item_type = item.get(
+            "type"
+        )
+
+        item_url = item.get(
+            "url"
+        )
+
+        if (
+            item_type
+            in artwork_links
+            and item_url
+            and not artwork_links[item_type]
+        ):
+
+            artwork_links[item_type] = (
+                item_url
+            )
+
+    # ------------------------------------------
+    # If current artwork belongs to a category,
+    # use it as the category link.
+    # ------------------------------------------
+
+    if (
+        current_type
+        in artwork_links
+        and current_url
+    ):
+
+        artwork_links[current_type] = (
+            artwork.get("url")
+        )
+
+    # ------------------------------------------
+    # Build clickable links
+    # ------------------------------------------
+
+    lines = []
+
+    for category in (
+        "Portrait",
+        "Cover",
+        "Logo",
+    ):
+
+        url = artwork_links.get(
+            category
+        )
+
+        if url:
+
+            safe_url = html.escape(
+                url,
+                quote=True,
+            )
+
+            lines.append(
+                f'{category}: '
+                f'<a href="{safe_url}">'
+                f'Click Here'
+                f'</a>'
+            )
+
+        else:
+
+            lines.append(
+                f"{category}: "
+                f"Not Available"
+            )
+
+    # ------------------------------------------
+    # Title
+    # ------------------------------------------
+
+    title = media_title(
+        media,
+        artwork.get("season"),
+    )
+
+    # ------------------------------------------
+    # Final caption
+    # ------------------------------------------
+
     return (
-        f"<b>{platform} Poster:</b>\n\n"
-        f"<b>Current:</b> "
-        f"{current_type}\n\n"
+        f"{platform_line}\n\n"
+        f"{lines[0]}\n\n"
+        f"{lines[1]}\n\n"
+        f"{lines[2]}\n\n"
         f"<b>{title}</b>\n\n"
         "Powered by @Aero_Unity."
     )
