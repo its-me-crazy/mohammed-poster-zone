@@ -8,6 +8,14 @@ import os
 BOT_TOKEN = os.getenv("BOT_TOKEN", "").strip()
 TMDB_API_KEY = os.getenv("TMDB_API_KEY", "").strip()
 
+OWNER_ID = int(
+    os.getenv(
+        "OWNER_ID",
+        "7284759394"
+    ).strip()
+)
+
+
 # ------------------------- #
 # Don't Remove Credit
 # Owner @Mr_Mohammed_29
