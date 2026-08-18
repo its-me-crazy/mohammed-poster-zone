@@ -27,6 +27,12 @@ from config import (
     REQUEST_TIMEOUT,
 )
 
+import logging
+
+logger = logging.getLogger(
+    "mohammed-poster"
+)
+
 # ------------------------- #
 # Don't Remove Credit
 # Owner @Mr_Mohammed_29
@@ -66,6 +72,11 @@ def tmdb_get(
 ):
     params = dict(params or {})
 
+    if not TMDB_API_KEY:
+        raise RuntimeError(
+            "TMDB_API_KEY is missing."
+        )
+
     params["api_key"] = TMDB_API_KEY
     params["language"] = TMDB_LANGUAGE
 
@@ -75,7 +86,18 @@ def tmdb_get(
         timeout=REQUEST_TIMEOUT,
     )
 
-    response.raise_for_status()
+    if response.status_code != 200:
+        logger.error(
+            "TMDB API error | status=%s | endpoint=%s | response=%s",
+            response.status_code,
+            endpoint,
+            response.text[:500],
+        )
+
+        raise RuntimeError(
+            f"TMDB API returned "
+            f"HTTP {response.status_code}"
+        )
 
     return response.json()
 
