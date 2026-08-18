@@ -661,8 +661,8 @@ async def start_command(
             [
                 [
                     InlineKeyboardButton(
-                        "🔎 Search Poster",
-                        switch_inline_query_current_chat="",
+                        "• join Poster group",
+                        url="https://t.me/AU_Bot_Discussion",
                     )
                 ],
                 [
@@ -676,13 +676,8 @@ async def start_command(
 
         await update.message.reply_text(
             "🎬 <b>Mohammed Poster Zone</b>\n\n"
-            "Welcome to the bot! 👋\n\n"
-            "I can help you find artwork for "
-            "movies, series, anime, dramas, "
-            "cartoons and serials.\n\n"
-            "Use the button below to search "
-            "for a poster.\n\n"
-            "⚡ Powered by @Aero_Unity",
+            "Welcome to Mohammed Poster bot! 👋\n\n"
+            "Please Use This Bot In Our Poster Group.", 
             reply_markup=keyboard,
             parse_mode=ParseMode.HTML,
         )
