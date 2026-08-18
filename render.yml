@@ -1,0 +1,38 @@
+# ------------------------- #
+# Don't Remove Credit
+# Owner @Mr_Mohammed_29
+# ------------------------- #
+
+services:
+  - type: web
+    name: mohammed-poster-zone
+    runtime: docker
+    plan: starter
+
+    healthCheckPath: /health
+
+    envVars:
+      - key: BOT_TOKEN
+        sync: false
+
+      - key: TMDB_API_KEY
+        sync: false
+
+      - key: PORT
+        value: "10000"
+
+      - key: BOT_NAME
+        value: "Mohammed Poster Zone"
+
+      - key: TMDB_LANGUAGE
+        value: "en-US"
+
+      - key: REQUEST_TIMEOUT
+        value: "20"
+
+    autoDeploy: true
+
+# ------------------------- #
+# Don't Remove Credit
+# Owner @Mr_Mohammed_29
+# ------------------------- #
