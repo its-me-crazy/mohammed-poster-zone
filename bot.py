@@ -173,6 +173,326 @@ def is_group(update: Update):
 # ------------------------- #
 
 # --------------------------------------------------
+# Force Subscribe Callback Wrapper
+# --------------------------------------------------
+
+async def handle_force_sub_callback(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+):
+
+    pending = await force_sub_callback(
+        update,
+        context,
+    )
+
+    # User has not joined yet
+    if not pending:
+        return
+
+    user = update.effective_user
+
+    if not user:
+        return
+
+    command = pending.get(
+        "command",
+        "",
+    ).lower()
+
+    args = pending.get(
+        "args",
+        [],
+    )
+
+    logger.info(
+        "Executing pending command after "
+        "force-sub verification | "
+        "user=%s | command=%s | args=%s",
+        user.id,
+        command,
+        args,
+    )
+
+    # --------------------------------------------------
+    # POSTER
+    # --------------------------------------------------
+
+    if command == "poster":
+
+        # Re-create the original command
+        update.message = update.message
+
+        # We cannot directly modify
+        # Telegram's original message.
+        #
+        # Instead, search the saved title
+        # and send the result directly.
+
+        if not args:
+
+            await context.bot.send_message(
+                chat_id=update.effective_chat.id,
+                text=(
+                    "❌ No poster title was saved."
+                ),
+            )
+
+            return
+
+        title = " ".join(args).strip()
+
+        processing = await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text="🔎 Searching for artwork...",
+        )
+
+        try:
+
+            media = await asyncio.to_thread(
+                search_media,
+                title,
+            )
+
+            if not media:
+
+                await processing.edit_text(
+                    "❌ No matching movie or "
+                    "series was found."
+                )
+
+                return
+
+            await processing.delete()
+
+            items = await asyncio.to_thread(
+                build_navigation_items,
+                media,
+            )
+
+            if not items:
+
+                await context.bot.send_message(
+                    chat_id=update.effective_chat.id,
+                    text=(
+                        "❌ No artwork was found "
+                        "for this title."
+                    ),
+                )
+
+                return
+
+            first = items[0]
+
+            sent = await context.bot.send_photo(
+                chat_id=update.effective_chat.id,
+                photo=first["url"],
+                caption=build_caption(
+                    media,
+                    "Unknown Platform",
+                    first,
+                ),
+                parse_mode=ParseMode.HTML,
+            )
+
+            cleanup_navigation()
+
+            key = (
+                update.effective_chat.id,
+                user.id,
+                sent.message_id,
+            )
+
+            NAVIGATION[key] = {
+                "items": items,
+                "index": 0,
+                "media": media,
+                "platform": "Unknown Platform",
+                "created_at": time.time(),
+            }
+
+            keyboard = make_navigation_buttons(
+                key,
+                0,
+                len(items),
+            )
+
+            if keyboard:
+
+                await sent.edit_reply_markup(
+                    reply_markup=keyboard
+                )
+
+        except Exception:
+
+            logger.exception(
+                "Pending poster execution failed"
+            )
+
+            try:
+
+                await processing.edit_text(
+                    "⚠️ An error occurred while "
+                    "searching. Please try again."
+                )
+
+            except Exception:
+
+                pass
+
+        return
+
+    # --------------------------------------------------
+    # OTT
+    # --------------------------------------------------
+
+    if command == "ott":
+
+        if not args:
+
+            await context.bot.send_message(
+                chat_id=update.effective_chat.id,
+                text=(
+                    "❌ No OTT URL was saved."
+                ),
+            )
+
+            return
+
+        url = args[0].strip()
+
+        if not (
+            url.startswith("http://")
+            or url.startswith("https://")
+        ):
+
+            await context.bot.send_message(
+                chat_id=update.effective_chat.id,
+                text=(
+                    "❌ Invalid OTT URL."
+                ),
+            )
+
+            return
+
+        platform = detect_platform(
+            url
+        )
+
+        processing = await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text="🌐 Reading the OTT page...",
+        )
+
+        try:
+
+            title = await asyncio.to_thread(
+                extract_title_from_url,
+                url,
+            )
+
+            if not title:
+
+                await processing.edit_text(
+                    "❌ I couldn't extract a "
+                    "title from this page."
+                )
+
+                return
+
+            media = await asyncio.to_thread(
+                search_media,
+                title,
+            )
+
+            if not media:
+
+                await processing.edit_text(
+                    "❌ I couldn't find matching "
+                    "artwork for this title."
+                )
+
+                return
+
+            await processing.delete()
+
+            items = await asyncio.to_thread(
+                build_navigation_items,
+                media,
+            )
+
+            if not items:
+
+                await context.bot.send_message(
+                    chat_id=update.effective_chat.id,
+                    text=(
+                        "❌ No artwork was found."
+                    ),
+                )
+
+                return
+
+            first = items[0]
+
+            sent = await context.bot.send_photo(
+                chat_id=update.effective_chat.id,
+                photo=first["url"],
+                caption=build_caption(
+                    media,
+                    platform,
+                    first,
+                ),
+                parse_mode=ParseMode.HTML,
+            )
+
+            cleanup_navigation()
+
+            key = (
+                update.effective_chat.id,
+                user.id,
+                sent.message_id,
+            )
+
+            NAVIGATION[key] = {
+                "items": items,
+                "index": 0,
+                "media": media,
+                "platform": platform,
+                "created_at": time.time(),
+            }
+
+            keyboard = make_navigation_buttons(
+                key,
+                0,
+                len(items),
+            )
+
+            if keyboard:
+
+                await sent.edit_reply_markup(
+                    reply_markup=keyboard
+                )
+
+        except Exception:
+
+            logger.exception(
+                "Pending OTT execution failed"
+            )
+
+            try:
+
+                await processing.edit_text(
+                    "⚠️ The OTT page could not "
+                    "be processed."
+                )
+
+            except Exception:
+
+                pass
+
+        return
+
+# --------------------------------------------------
 # Navigation storage
 # --------------------------------------------------
 
@@ -820,7 +1140,7 @@ def main():
 
     application.add_handler(
         CallbackQueryHandler(
-            force_sub_callback,
+            handle_force_sub_callback,
             pattern=r"^force_sub_check$",
         )
     )
