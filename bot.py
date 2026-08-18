@@ -948,7 +948,7 @@ async def ott_command(
         except Exception:
             pass
 
-# ------------------------- #
+            # ------------------------- #
 # Don't Remove Credit
 # Owner @Mr_Mohammed_29
 # ------------------------- #
@@ -1038,110 +1038,40 @@ async def navigation_callback(
         )
 
         # --------------------------------------------------
-        # Download image
+        # Create thumbnail with movie / series title
         # --------------------------------------------------
 
         try:
-            response = await asyncio.to_thread(
-                session.get,
+
+            movie_title = (
+                data["media"].get("title")
+                or data["media"].get("name")
+                or data["media"].get("original_title")
+                or data["media"].get("original_name")
+                or "Unknown"
+            )
+
+            thumbnail = await asyncio.to_thread(
+                create_thumbnail,
                 image_url,
-                timeout=30,
+                movie_title,
             )
 
-            response.raise_for_status()
-
-            content = response.content
-
-            if not content:
-                raise ValueError(
-                    "Downloaded image is empty."
-                )
-
-            content_type = (
-                response.headers.get(
-                    "Content-Type",
-                    ""
-                ).lower()
-            )
-
-            logger.info(
-                "Navigation image | status=%s | type=%s | size=%s",
-                response.status_code,
-                content_type,
-                len(content),
-            )
-
-            # --------------------------------------------------
-            # Verify actual image using Pillow
-            # --------------------------------------------------
-
-            from PIL import Image
-
-            image_buffer = io.BytesIO(content)
-
-            try:
-                image = Image.open(
-                    image_buffer
-                )
-
-                image.verify()
-
-            except Exception:
-                logger.error(
-                    "Downloaded content is not a valid image | URL=%s",
-                    image_url,
-                )
-
+            if not thumbnail:
                 await query.answer(
-                    "❌ This artwork is not a valid image.",
+                    "❌ Failed to create thumbnail.",
                     show_alert=True,
                 )
-
                 return
 
-            # Re-open image after verify()
-            image_buffer.seek(0)
-
-            # --------------------------------------------------
-            # Telegram-compatible JPEG
-            # --------------------------------------------------
-
-            image_buffer = io.BytesIO()
-
-            image = Image.open(
-                io.BytesIO(content)
-            )
-
-            # Convert formats such as WEBP/PNG
-            # into JPEG for maximum compatibility.
-            if image.mode not in (
-                "RGB",
-                "L",
-            ):
-                image = image.convert("RGB")
-
-            image.thumbnail(
-                (2000, 2000)
-            )
-
-            image.save(
-                image_buffer,
-                format="JPEG",
-                quality=92,
-                optimize=True,
-            )
-
-            image_buffer.seek(0)
-
-            image_buffer.name = "poster.jpg"
-
         except Exception:
+
             logger.exception(
-                "Failed to prepare navigation image"
+                "Failed to create navigation thumbnail"
             )
 
             await query.answer(
-                "❌ Unable to load this artwork.",
+                "❌ Unable to create thumbnail.",
                 show_alert=True,
             )
 
@@ -1174,7 +1104,7 @@ async def navigation_callback(
         try:
 
             media = InputMediaPhoto(
-                media=image_buffer,
+                media=thumbnail,
                 caption=caption,
                 parse_mode=ParseMode.HTML,
             )
@@ -1185,6 +1115,7 @@ async def navigation_callback(
             )
 
         except Exception:
+
             logger.exception(
                 "Telegram edit_media failed"
             )
@@ -1197,23 +1128,26 @@ async def navigation_callback(
             return
 
     except Exception:
+
         logger.exception(
             "Navigation callback failed"
         )
 
         try:
+
             await query.answer(
                 "❌ Unable to change artwork.",
                 show_alert=True,
             )
+
         except Exception:
+
             pass
 
 # ------------------------- #
 # Don't Remove Credit
 # Owner @Mr_Mohammed_29
 # ------------------------- #
-
 # --------------------------------------------------
 # Error handler
 # --------------------------------------------------
