@@ -8,6 +8,22 @@ import os
 BOT_TOKEN = os.getenv("BOT_TOKEN", "").strip()
 TMDB_API_KEY = os.getenv("TMDB_API_KEY", "").strip()
 
+# ------------------------- #
+# MongoDB
+# ------------------------- #
+
+MONGO_URI = os.getenv(
+    "MONGO_URI",
+    "",
+).strip()
+
+MONGO_DB = os.getenv(
+    "MONGO_DB",
+    "mohammed_poster_zone",
+).strip()
+
+# -- OWNER --#
+
 OWNER_ID = int(
     os.getenv(
         "OWNER_ID",
@@ -15,6 +31,10 @@ OWNER_ID = int(
     ).strip()
 )
 
+UPDATES_URL = os.getenv(
+    "UPDATES_URL",
+    "https://t.me/Aero_Unity",
+).strip()
 
 # ------------------------- #
 # Don't Remove Credit
@@ -76,3 +96,5 @@ if not TMDB_API_KEY:
 # Don't Remove Credit
 # Owner @Mr_Mohammed_29
 # ------------------------- #
+
+
