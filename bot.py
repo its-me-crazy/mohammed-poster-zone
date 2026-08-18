@@ -655,7 +655,7 @@ async def start_command(
                 [
                     InlineKeyboardButton(
                         "• ᴘᴏsᴛᴇʀ ɢʀᴏᴜᴘ •",
-                        url="https://t.me/AU_Bot_Discussion",
+                        url="https://t.me/+hxfpcrzX0YFjNmRl",
                     )
                 ],
                 [
@@ -688,7 +688,7 @@ async def start_command(
 
         await update.message.reply_text(
             "🎬 <b>Mohammed Poster Zone</b>\n\n"
-            "Your movie, series, drama, anime, "
+            "Your movies, series, drama, anime, "
             "cartoon and serial poster finder.\n\n"
             "🎞 <code>/poster Reacher</code>\n"
             "🌐 <code>/ott URL</code>\n"
@@ -713,23 +713,33 @@ async def help_command(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
 ):
+
     if not is_group(update):
         return
 
     await update.message.reply_text(
-        "❓ <b>Mohammed Poster Zone Help</b>\n\n"
-        "<b>Search by title:</b>\n"
-        "<code>/poster Reacher</code>\n\n"
-        "<b>Search by OTT URL:</b>\n"
-        "<code>/ott https://example.com/...</code>\n\n"
-        "<b>Supported platforms:</b>\n"
-        "<code>/platforms</code>\n\n"
-        "<b>Artwork navigation:</b>\n"
-        "⬅️ Back\n"
-        "Next ➡️\n\n"
-        "The bot works only in groups and "
-        "supergroups.",
+        "╭━━━「 🎬 ᴘᴏsᴛᴇʀ ʜᴇʟᴘ 」━━━╮\n"
+        "┃\n"
+        "┃ 🔎 <b>Search Poster</b>\n"
+        "┃ <code>/poster Movie Name</code>\n"
+        "┃\n"
+        "┃ 🌐 <b>Search From OTT URL</b>\n"
+        "┃ <code>/ott https://example.com</code>\n"
+        "┃\n"
+        "┃ 📺 <b>Supported Platforms</b>\n"
+        "┃ <code>/platforms</code>\n"
+        "┃\n"
+        "┃ 🖼 <b>Artwork Navigation</b>\n"
+        "┃ <b>⬅️ Back</b> — Previous artwork\n"
+        "┃ <b>Next ➡️</b> — Next artwork\n"
+        "┃\n"
+        "┃ ℹ️ <b>About Bot</b>\n"
+        "┃ <code>/about</code>\n"
+        "┃\n"
+        "╰━━━━━━━━━━━━━━━━━━━━╯\n\n"
+        "⚡ <i>Powered by @Aero_Unity</i>",
         parse_mode=ParseMode.HTML,
+        disable_web_page_preview=True,
     )
 
 # ------------------------- #
@@ -745,22 +755,30 @@ async def about_command(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
 ):
+
     if not is_group(update):
         return
 
     await update.message.reply_text(
-        "ℹ️ <b>Mohammed Poster Zone</b>\n\n"
-        "Searches movie and TV metadata and "
-        "available artwork through TMDB.\n\n"
-        "Supports movies, TV series, dramas, "
-        "anime, cartoons and serials when "
-        "matching metadata is available.\n\n"
-        "This bot is not affiliated with "
-        "Netflix, Prime Video, Disney+, Hulu "
-        "or the other listed platforms.\n\n"
-        "TMDB API is used for metadata and "
-        "artwork.",
-        parse_mode=ParseMode.HTML,
+        "⍟───[ MY ᴅᴇᴛᴀɪʟꜱ ]───⍟\n\n"
+        "‣ ᴍʏ ɴᴀᴍᴇ : "
+        "[ᴍᴏʜᴀᴍᴍᴇᴅ ᴘᴏsᴛᴇʀ ᴢᴏɴᴇ](https://t.me/Mohammed_Poster_bot)\n"
+        "‣ ᴅᴇᴠᴇʟᴏᴘᴇʀ : "
+        "[ᴍᴏʜᴀᴍᴍᴇᴅ](https://t.me/Mr_Mohammed_29)\n"
+        "‣ ʟɪʙʀᴀʀʏ : "
+        "[ᴘʏᴛʜᴏɴ-ᴛᴇʟᴇɢʀᴀᴍ-ʙᴏᴛ](https://pypi.org/project/python-telegram-bot/)\n"
+        "‣ ʟᴀɴɢᴜᴀɢᴇ : "
+        "[ᴘʏᴛʜᴏɴ 𝟹](https://www.python.org/downloads/)\n"
+        "‣ ᴅᴀᴛᴀ ʙᴀsᴇ : "
+        "[ᴍᴏɴɢᴏ ᴅʙ](https://www.mongodb.com/)\n"
+        "‣ ʙᴏᴛ sᴇʀᴠᴇʀ : "
+        "[ʙᴏᴛ sᴇʀᴠᴇʀ](https://render.com)\n"
+        "‣ ᴜᴘᴅᴀᴛᴇs : "
+        "[Aᴇʀᴏ Uɴɪᴛʏ](https://t.me/Aero_Unity)\n"
+        "‣ ʙᴜɪʟᴅ sᴛᴀᴛᴜs : "
+        "ᴠ3.𝟶 [sᴛᴀʙʟᴇ](https://t.me/Aero_Unity)",
+        parse_mode=ParseMode.MARKDOWN,
+        disable_web_page_preview=True,
     )
 
 # ------------------------- #
@@ -780,7 +798,7 @@ async def platforms_command(
         return
 
     await update.message.reply_text(
-        "🌐 <b>SUPPORTED PLATFORMS</b>\n\n"
+        "🌐 <b>sᴜᴘᴘᴏʀᴛᴇᴅ ᴘʟᴀᴛғᴏʀᴍs</b>\n\n"
         + get_platforms_text(),
         parse_mode=ParseMode.HTML,
     )
@@ -806,8 +824,8 @@ async def send_poster_result(
 
     if not items:
         await update.message.reply_text(
-            "❌ No artwork was found for "
-            "this title."
+            "❌ <b>ɴᴏ ᴀʀᴛᴡᴏʀᴋ ᴡᴀs ғᴏᴜɴᴅ ғᴏʀ ᴛʜɪs ᴛɪᴛʟᴇ.</b>",
+             parse_mode=ParseMode.HTML,
         )
         return
 
@@ -832,7 +850,7 @@ async def send_poster_result(
     if not thumbnail:
         await context.bot.send_message(
             chat_id=update.effective_chat.id,
-            text="❌ Failed to create thumbnail.",
+            text="‼️ Fᴀɪʟᴇᴅ Tᴏ ᴄʀᴇᴀᴛᴇ ᴛʜᴜᴍʙɴᴀɪʟ.",
         )
         return
 
@@ -841,7 +859,7 @@ async def send_poster_result(
         photo=thumbnail,
         caption=build_caption(
             media,
-            "Unknown Platform",
+            "𝗠𝗼𝗵𝗮𝗺𝗺𝗲𝗱 𝗣𝗹𝗮𝘁𝗳𝗼𝗿𝗺",
             first,
         ),
         parse_mode=ParseMode.HTML,
@@ -896,7 +914,7 @@ async def poster_command(
 
     if not context.args:
         await update.message.reply_text(
-            "❌ Enter a title.\n\n"
+            "~ ᴇɴᴛᴇʀ ᴀ ᴛɪᴛʟᴇ.\n\n"
             "Example:\n"
             "<code>/poster Reacher</code>",
             parse_mode=ParseMode.HTML,
@@ -908,7 +926,7 @@ async def poster_command(
     ).strip()
 
     processing = await update.message.reply_text(
-        "🔎 Searching for artwork..."
+        "🔎 sᴇᴀʀᴄʜɪɴɢ ғᴏʀ ᴀʀᴛᴡᴏʀᴋ..."
     )
 
     try:
@@ -919,8 +937,7 @@ async def poster_command(
 
         if not media:
             await processing.edit_text(
-                "❌ No matching movie or series "
-                "was found."
+                "‼️ Nᴏ Mᴀᴛᴄʜɪɴɢ 𝗠𝗼𝘃𝗶𝗲𝘀 ᴏʀ 𝗦𝗲𝗿𝗶𝗲𝘀 ᴏʀ 𝗔𝗻𝗶𝗺𝗲 ᴏʀ 𝗦𝗲𝗿𝗶𝗮𝗹 ᴏʀ 𝗗𝗿𝗮𝗺𝗮 ᴡᴀs ғᴏᴜɴᴅ"
             )
             return
 
@@ -929,7 +946,7 @@ async def poster_command(
         await send_poster_result(
             update,
             media,
-            "Unknown Platform",
+            "𝗠𝗼𝗵𝗮𝗺𝗺𝗲𝗱 𝗣𝗹𝗮𝘁𝗳𝗼𝗿𝗺",
         )
 
     except Exception:
@@ -939,8 +956,7 @@ async def poster_command(
 
         try:
             await processing.edit_text(
-                "⚠️ An error occurred while "
-                "searching. Please try again."
+                "⚠️  𝗔𝗻 𝗲𝗿𝗿𝗼𝗿 𝗼𝗰𝗰𝘂𝗿𝗿𝗲𝗱 𝘄𝗵𝗶𝗹𝗲 𝘀𝗲𝗮𝗿𝗰𝗵𝗶𝗻𝗴. 𝗣𝗹𝗲𝗮𝘀𝗲 𝘁𝗿𝘆 𝗮𝗴𝗮𝗶𝗻"
             )
         except Exception:
             pass
