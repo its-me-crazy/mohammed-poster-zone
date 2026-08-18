@@ -949,6 +949,8 @@ async def ott_command(
             pass
 
             # ------------------------- #
+
+# ------------------------- #
 # Don't Remove Credit
 # Owner @Mr_Mohammed_29
 # ------------------------- #
@@ -1038,43 +1040,46 @@ async def navigation_callback(
         )
 
         # --------------------------------------------------
-        # Create thumbnail with movie / series title
+        # Movie / Series title
         # --------------------------------------------------
 
-        try:
+        title = (
+            data["media"].get("title")
+            or data["media"].get("name")
+            or data["media"].get("original_title")
+            or data["media"].get("original_name")
+            or "Unknown"
+        )
 
-            movie_title = (
-                data["media"].get("title")
-                or data["media"].get("name")
-                or data["media"].get("original_title")
-                or data["media"].get("original_name")
-                or "Unknown"
+        # Add season name when browsing a season.
+        season = item.get("season")
+
+        if season:
+            season_name = season.get(
+                "name",
+                "",
             )
 
-            thumbnail = await asyncio.to_thread(
-                create_thumbnail,
-                image_url,
-                movie_title,
-            )
-
-            if not thumbnail:
-                await query.answer(
-                    "❌ Failed to create thumbnail.",
-                    show_alert=True,
+            if season_name:
+                title = (
+                    f"{title} {season_name}"
                 )
-                return
 
-        except Exception:
+        # --------------------------------------------------
+        # Create thumbnail
+        # --------------------------------------------------
 
-            logger.exception(
-                "Failed to create navigation thumbnail"
-            )
+        thumbnail = await asyncio.to_thread(
+            create_thumbnail,
+            image_url,
+            title,
+        )
 
+        if not thumbnail:
             await query.answer(
-                "❌ Unable to create thumbnail.",
+                "❌ Failed to create thumbnail.",
                 show_alert=True,
             )
-
             return
 
         # --------------------------------------------------
@@ -1115,7 +1120,6 @@ async def navigation_callback(
             )
 
         except Exception:
-
             logger.exception(
                 "Telegram edit_media failed"
             )
@@ -1128,26 +1132,23 @@ async def navigation_callback(
             return
 
     except Exception:
-
         logger.exception(
             "Navigation callback failed"
         )
 
         try:
-
             await query.answer(
                 "❌ Unable to change artwork.",
                 show_alert=True,
             )
-
         except Exception:
-
             pass
 
 # ------------------------- #
 # Don't Remove Credit
 # Owner @Mr_Mohammed_29
 # ------------------------- #
+
 # --------------------------------------------------
 # Error handler
 # --------------------------------------------------
