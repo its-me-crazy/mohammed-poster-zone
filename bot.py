@@ -324,41 +324,41 @@ async def handle_force_sub_callback(
 
                 return
 
-                        first = items[0]
+            first = items[0]
 
-                        title = (
-                            media.get("title")
-                            or media.get("name")
-                            or media.get("original_title")
-                            or media.get("original_name")
-                            or "Unknown"
-                        )
+            title = (
+                media.get("title")
+                or media.get("name")
+                or media.get("original_title")
+                or media.get("original_name")
+                or "Unknown"
+            )
 
-                        thumbnail = await asyncio.to_thread(
-                            create_thumbnail,
-                            first["url"],
-                            title,
-                        )
+            thumbnail = await asyncio.to_thread(
+                create_thumbnail,
+                first["url"],
+                title,
+            )
 
-                        if not thumbnail:
-                            await context.bot.send_message(
-                                chat_id=update.effective_chat.id,
-                                text="❌ Failed to create thumbnail.",
-                            )
-                            return
+            if not thumbnail:
+                await context.bot.send_message(
+                    chat_id=update.effective_chat.id,
+                    text="❌ Failed to create thumbnail.",
+                )
+                return
 
-                        thumbnail.seek(0)
+            thumbnail.seek(0)
 
-                        sent = await context.bot.send_photo(
-                            chat_id=update.effective_chat.id,
-                            photo=thumbnail,
-                            caption=build_caption(
-                                media,
-                                "Unknown platform",
-                                first,
-                            ),
-                            parse_mode=ParseMode.HTML,
-                        )
+            sent = await context.bot.send_photo(
+                chat_id=update.effective_chat.id,
+                photo=thumbnail,
+                caption=build_caption(
+                     media,
+                     "Unknown platform",
+                     first,
+                ),
+                parse_mode=ParseMode.HTML,
+            ) 
 
             cleanup_navigation()
 
