@@ -82,8 +82,8 @@ from poster import (
 from mohammed.forcesub import (
     force_sub,
     force_sub_callback,
+    get_pending_request,
 )
-
 # ------------------------- #
 # Don't Remove Credit
 # Owner @Mr_Mohammed_29
