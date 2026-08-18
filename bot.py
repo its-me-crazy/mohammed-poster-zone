@@ -827,27 +827,33 @@ async def send_poster_result(
 
     first = items[0]
 
-    thumbnail = await asyncio.to_thread(
-        create_thumbnail,
-        first["url"],
+    title = (
         media.get("title")
         or media.get("name")
         or media.get("original_title")
         or media.get("original_name")
-        or "Unknown",
+        or "Unknown"
+    )
+
+    thumbnail = await asyncio.to_thread(
+        create_thumbnail,
+        first["url"],
+        title,
     )
 
     if not thumbnail:
-        await update.message.reply_text(
-            "❌ Failed to create thumbnail."
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text="❌ Failed to create thumbnail.",
         )
         return
 
-    sent = await update.message.reply_photo(
+    sent = await context.bot.send_photo(
+        chat_id=update.effective_chat.id,
         photo=thumbnail,
         caption=build_caption(
             media,
-            platform,
+            "Unknown Platform",
             first,
         ),
         parse_mode=ParseMode.HTML,
@@ -1039,11 +1045,94 @@ async def ott_command(
 
         await processing.delete()
 
-        await send_poster_result(
-            update,
+        # ------------------------- #
+        # Get Artwork
+        # ------------------------- #
+
+        items = await asyncio.to_thread(
+            build_navigation_items,
             media,
-            platform,
         )
+
+        if not items:
+            await update.message.reply_text(
+                "❌ No artwork was found for "
+                "this title."
+            )
+            return
+
+        cleanup_navigation()
+
+        first = items[0]
+
+        # ------------------------- #
+        # Create Thumbnail
+        # ------------------------- #
+
+        title = (
+            media.get("title")
+            or media.get("name")
+            or media.get("original_title")
+            or media.get("original_name")
+            or "Unknown"
+        )
+
+        thumbnail = await asyncio.to_thread(
+            create_thumbnail,
+            first["url"],
+            title,
+        )
+
+        if not thumbnail:
+            await context.bot.send_message(
+                chat_id=update.effective_chat.id,
+                text="❌ Failed to create thumbnail.",
+            )
+            return
+
+        # ------------------------- #
+        # Send Thumbnail
+        # ------------------------- #
+
+        sent = await context.bot.send_photo(
+            chat_id=update.effective_chat.id,
+            photo=thumbnail,
+            caption=build_caption(
+                media,
+                platform,
+                first,
+            ),
+            parse_mode=ParseMode.HTML,
+        )
+
+        # ------------------------- #
+        # Save Navigation
+        # ------------------------- #
+
+        key = (
+            update.effective_chat.id,
+            update.effective_user.id,
+            sent.message_id,
+        )
+
+        NAVIGATION[key] = {
+            "items": items,
+            "index": 0,
+            "media": media,
+            "platform": platform,
+            "created_at": time.time(),
+        }
+
+        keyboard = make_navigation_buttons(
+            key,
+            0,
+            len(items),
+        )
+
+        if keyboard:
+            await sent.edit_reply_markup(
+                reply_markup=keyboard
+            )
 
     except Exception:
         logger.exception(
@@ -1787,15 +1876,6 @@ def main():
         error_handler
     )
 
-    logger.info(
-        "Mohammed Poster Zone is online."
-    )
-
-    application.run_polling(
-        allowed_updates=Update.ALL_TYPES,
-        drop_pending_updates=True,
-    )
-
     application.add_handler(
         CommandHandler(
             "stats",
@@ -1850,6 +1930,16 @@ def main():
             "unban",
             unban_command,
         )
+    )
+
+
+    logger.info(
+        "Mohammed Poster Zone is online."
+    )
+
+    application.run_polling(
+        allowed_updates=Update.ALL_TYPES,
+        drop_pending_updates=True,
     )
 
 # ------------------------- #
