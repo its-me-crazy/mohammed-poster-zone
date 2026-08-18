@@ -278,7 +278,7 @@ async def handle_force_sub_callback(
             await context.bot.send_message(
                 chat_id=update.effective_chat.id,
                 text=(
-                    "❌ No poster title was saved."
+                    "❌ Nᴏ ᴘᴏsᴛᴇʀ ᴛɪᴛʟᴇ ᴡᴀs sᴀᴠᴇᴅ."
                 ),
             )
 
@@ -288,7 +288,7 @@ async def handle_force_sub_callback(
 
         processing = await context.bot.send_message(
             chat_id=update.effective_chat.id,
-            text="🔎 Searching for artwork...",
+            text="🔎 Sᴇᴀʀᴄʜɪɴɢ ғᴏʀ ᴀʀᴛᴡᴏʀᴋ...",
         )
 
         try:
@@ -301,8 +301,7 @@ async def handle_force_sub_callback(
             if not media:
 
                 await processing.edit_text(
-                    "❌ No matching movie or "
-                    "series was found."
+                    "Nᴏ Mᴀᴛᴄʜɪɴɢ 𝗠𝗼𝘃𝗶𝗲𝘀 ᴏʀ 𝗦𝗲𝗿𝗶𝗲𝘀 ᴏʀ 𝗔𝗻𝗶𝗺𝗲 ᴏʀ 𝗦𝗲𝗿𝗶𝗮𝗹 ᴏʀ 𝗗𝗿𝗮𝗺𝗮 ᴡᴀs ғᴏᴜɴᴅ"
                 )
 
                 return
@@ -319,8 +318,7 @@ async def handle_force_sub_callback(
                 await context.bot.send_message(
                     chat_id=update.effective_chat.id,
                     text=(
-                        "❌ No artwork was found "
-                        "for this title."
+                        "‼️ Nᴏ Aʀᴛᴡᴏʀᴋ Wᴀs Fᴏᴜɴᴅ Fᴏʀ Tʜɪs Tɪᴛʟᴇ.. "
                     ),
                 )
 
@@ -333,7 +331,7 @@ async def handle_force_sub_callback(
                 photo=first["url"],
                 caption=build_caption(
                     media,
-                    "Unknown Platform",
+                    "𝗠𝗼𝗵𝗮𝗺𝗺𝗲𝗱 𝗣𝗹𝗮𝘁𝗳𝗼𝗿𝗺",
                     first,
                 ),
                 parse_mode=ParseMode.HTML,
@@ -351,7 +349,7 @@ async def handle_force_sub_callback(
                 "items": items,
                 "index": 0,
                 "media": media,
-                "platform": "Unknown Platform",
+                "platform": "𝗠𝗼𝗵𝗮𝗺𝗺𝗲𝗱 𝗣𝗹𝗮𝘁𝗳𝗼𝗿𝗺",
                 "created_at": time.time(),
             }
 
@@ -376,8 +374,7 @@ async def handle_force_sub_callback(
             try:
 
                 await processing.edit_text(
-                    "⚠️ An error occurred while "
-                    "searching. Please try again."
+                    "⚠️ 𝗔𝗻 𝗲𝗿𝗿𝗼𝗿 𝗼𝗰𝗰𝘂𝗿𝗿𝗲𝗱 𝘄𝗵𝗶𝗹𝗲 𝘀𝗲𝗮𝗿𝗰𝗵𝗶𝗻𝗴. 𝗣𝗹𝗲𝗮𝘀𝗲 𝘁𝗿𝘆 𝗮𝗴𝗮𝗶𝗻"
                 )
 
             except Exception:
@@ -397,7 +394,7 @@ async def handle_force_sub_callback(
             await context.bot.send_message(
                 chat_id=update.effective_chat.id,
                 text=(
-                    "❌ No OTT URL was saved."
+                    "❌ Nᴏ 𝗢𝗧𝗧 URL Wᴀs Sᴀᴠᴇᴅ."
                 ),
             )
 
@@ -413,7 +410,7 @@ async def handle_force_sub_callback(
             await context.bot.send_message(
                 chat_id=update.effective_chat.id,
                 text=(
-                    "❌ Invalid OTT URL."
+                    "‼️ Iɴᴠᴀʟɪᴅ 𝗢𝗧𝗧 URL.."
                 ),
             )
 
