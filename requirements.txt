@@ -1,0 +1,14 @@
+# ------------------------- #
+# Don't Remove Credit
+# Owner @Mr_Mohammed_29
+# ------------------------- #
+
+python-telegram-bot==22.5
+requests==2.32.5
+beautifulsoup4==4.13.4
+Flask==3.1.2
+
+# ------------------------- #
+# Don't Remove Credit
+# Owner @Mr_Mohammed_29
+# ------------------------- #
