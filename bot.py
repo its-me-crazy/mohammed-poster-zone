@@ -52,6 +52,31 @@ from config import (
     BOT_TOKEN,
     BOT_NAME,
     PORT,
+    OWNER_ID,
+    UPDATES_URL,
+)
+
+# ------------------------- #
+# Don't Remove Credit
+# Owner @Mr_Mohammed_29
+# ------------------------- #
+
+from database import (
+    init_database,
+    save_user,
+    save_chat,
+    get_user_count,
+    get_chat_count,
+    authorize_user,
+    unauthorize_user,
+    is_authorized_user,
+    authorize_chat,
+    unauthorize_chat,
+    is_authorized_chat,
+    ban_user,
+    unban_user,
+    is_banned,
+    get_all_user_ids,
 )
 
 # ------------------------- #
@@ -169,7 +194,23 @@ def is_group(update: Update):
         "group",
         "supergroup",
     )
-  
+
+# ------------------------- #
+# Don't Remove Credit
+# Owner @Mr_Mohammed_29
+# ------------------------- #
+
+def is_owner(
+    update: Update,
+):
+
+    user = update.effective_user
+
+    if not user:
+        return False
+
+    return user.id == OWNER_ID
+    
 # ------------------------- #
 # Don't Remove Credit
 # Owner @Mr_Mohammed_29
@@ -577,30 +618,99 @@ def make_navigation_buttons(
 # Owner @Mr_Mohammed_29
 # ------------------------- #
 
-# --------------------------------------------------
-# /start
-# --------------------------------------------------
-
 async def start_command(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
 ):
-    if not is_group(update):
+
+    user = update.effective_user
+    chat = update.effective_chat
+
+    if not user or not chat:
         return
 
-    await update.message.reply_text(
-        "🎬 <b>Mohammed Poster Zone</b>\n\n"
-        "Your movie, series, drama, anime, "
-        "cartoon and serial poster finder.\n\n"
-        "🎞 <code>/poster Reacher</code>\n"
-        "🌐 <code>/ott URL</code>\n"
-        "📚 <code>/platforms</code>\n"
-        "❓ <code>/help</code>\n"
-        "ℹ️ <code>/about</code>\n\n"
-        "Use the Back and Next buttons to "
-        "browse available artwork.",
-        parse_mode=ParseMode.HTML,
-    )
+    # ------------------------- #
+    # Save user
+    # ------------------------- #
+
+    try:
+        await save_user(user)
+        await save_chat(chat)
+    except Exception:
+        logger.exception(
+            "Failed to save start user/chat"
+        )
+
+    # ------------------------- #
+    # Private start
+    # ------------------------- #
+
+    if chat.type == "private":
+
+        if await is_banned(user.id):
+
+            await update.message.reply_text(
+                "🚫 <b>You are banned from using "
+                "this bot.</b>",
+                parse_mode=ParseMode.HTML,
+            )
+
+            return
+
+        keyboard = InlineKeyboardMarkup(
+            [
+                [
+                    InlineKeyboardButton(
+                        "🔎 Search Poster",
+                        switch_inline_query_current_chat="",
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        "📢 Join Updates",
+                        url=UPDATES_URL,
+                    )
+                ],
+            ]
+        )
+
+        await update.message.reply_text(
+            "🎬 <b>Mohammed Poster Zone</b>\n\n"
+            "Welcome to the bot! 👋\n\n"
+            "I can help you find artwork for "
+            "movies, series, anime, dramas, "
+            "cartoons and serials.\n\n"
+            "Use the button below to search "
+            "for a poster.\n\n"
+            "⚡ Powered by @Aero_Unity",
+            reply_markup=keyboard,
+            parse_mode=ParseMode.HTML,
+        )
+
+        return
+
+    # ------------------------- #
+    # Group start
+    # ------------------------- #
+
+    if chat.type in (
+        "group",
+        "supergroup",
+    ):
+
+        await update.message.reply_text(
+            "🎬 <b>Mohammed Poster Zone</b>\n\n"
+            "Your movie, series, drama, anime, "
+            "cartoon and serial poster finder.\n\n"
+            "🎞 <code>/poster Reacher</code>\n"
+            "🌐 <code>/ott URL</code>\n"
+            "📚 <code>/platforms</code>\n"
+            "❓ <code>/help</code>\n"
+            "ℹ️ <code>/about</code>\n\n"
+            "Use the Back and Next buttons to "
+            "browse available artwork.",
+            parse_mode=ParseMode.HTML,
+        )
 
 # ------------------------- #
 # Don't Remove Credit
@@ -1163,10 +1273,427 @@ async def error_handler(
         exc_info=context.error,
     )
 
+async def stats_command(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+):
+
+    if not is_owner(update):
+
+        await update.message.reply_text(
+            "🚫 Owner only command."
+        )
+
+        return
+
+    total_users = await get_user_count()
+
+    total_chats = await get_chat_count()
+
+    await update.message.reply_text(
+        "📊 <b>BOT STATISTICS</b>\n\n"
+        f"👤 <b>Total Users:</b> "
+        f"<code>{total_users}</code>\n"
+        f"👥 <b>Total Groups:</b> "
+        f"<code>{total_chats}</code>\n\n"
+        "⚡ <b>Mohammed Poster Zone</b>",
+        parse_mode=ParseMode.HTML,
+    )
+
 # ------------------------- #
 # Don't Remove Credit
 # Owner @Mr_Mohammed_29
 # ------------------------- #
+
+async def broadcast_command(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+):
+
+    if not is_owner(update):
+
+        await update.message.reply_text(
+            "🚫 Owner only command."
+        )
+
+        return
+
+    if not update.message.reply_to_message:
+
+        await update.message.reply_text(
+            "❌ Reply to a message with "
+            "<code>/broadcast</code>.",
+            parse_mode=ParseMode.HTML,
+        )
+
+        return
+
+    users = await get_all_user_ids()
+
+    if not users:
+
+        await update.message.reply_text(
+            "❌ No users found."
+        )
+
+        return
+
+    processing = await update.message.reply_text(
+        "📢 <b>Broadcast started...</b>\n\n"
+        f"👤 Users: <code>{len(users)}</code>",
+        parse_mode=ParseMode.HTML,
+    )
+
+    success = 0
+    failed = 0
+
+    source_message = (
+        update.message.reply_to_message
+    )
+
+    for user_id in users:
+
+        try:
+
+            await context.bot.copy_message(
+                chat_id=user_id,
+                from_chat_id=(
+                    source_message.chat_id
+                ),
+                message_id=(
+                    source_message.message_id
+                ),
+            )
+
+            success += 1
+
+        except Exception as error:
+
+            failed += 1
+
+            logger.warning(
+                "Broadcast failed | user=%s | error=%s",
+                user_id,
+                error,
+            )
+
+        await asyncio.sleep(
+            0.05
+        )
+
+    await processing.edit_text(
+        "📢 <b>BROADCAST COMPLETED</b>\n\n"
+        f"👥 <b>Total:</b> "
+        f"<code>{len(users)}</code>\n"
+        f"✅ <b>Success:</b> "
+        f"<code>{success}</code>\n"
+        f"❌ <b>Failed:</b> "
+        f"<code>{failed}</code>",
+        parse_mode=ParseMode.HTML,
+    )
+
+# ------------------------- #
+# Don't Remove Credit
+# Owner @Mr_Mohammed_29
+# ------------------------- #
+
+async def authuser_command(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+):
+
+    if not is_owner(update):
+
+        await update.message.reply_text(
+            "🚫 Owner only command."
+        )
+        return
+
+    if not context.args:
+
+        await update.message.reply_text(
+            "Usage:\n"
+            "<code>/authuser USER_ID</code>",
+            parse_mode=ParseMode.HTML,
+        )
+        return
+
+    try:
+
+        user_id = int(
+            context.args[0]
+        )
+
+    except ValueError:
+
+        await update.message.reply_text(
+            "❌ Invalid user ID."
+        )
+        return
+
+    await authorize_user(
+        user_id
+    )
+
+    await update.message.reply_text(
+        "✅ <b>User Authorized</b>\n\n"
+        f"👤 User ID: "
+        f"<code>{user_id}</code>",
+        parse_mode=ParseMode.HTML,
+    )
+
+# ------------------------- #
+# Don't Remove Credit
+# Owner @Mr_Mohammed_29
+# ------------------------- #
+
+async def unauthuser_command(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+):
+
+    if not is_owner(update):
+
+        await update.message.reply_text(
+            "🚫 Owner only command."
+        )
+        return
+
+    if not context.args:
+
+        await update.message.reply_text(
+            "Usage:\n"
+            "<code>/unauthuser USER_ID</code>",
+            parse_mode=ParseMode.HTML,
+        )
+        return
+
+    try:
+
+        user_id = int(
+            context.args[0]
+        )
+
+    except ValueError:
+
+        await update.message.reply_text(
+            "❌ Invalid user ID."
+        )
+        return
+
+    await unauthorize_user(
+        user_id
+    )
+
+    await update.message.reply_text(
+        "✅ <b>User Unauthorized</b>\n\n"
+        f"👤 User ID: "
+        f"<code>{user_id}</code>",
+        parse_mode=ParseMode.HTML,
+    )
+
+# ------------------------- #
+# Don't Remove Credit
+# Owner @Mr_Mohammed_29
+# ------------------------- #
+
+async def authchat_command(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+):
+
+    if not is_owner(update):
+
+        await update.message.reply_text(
+            "🚫 Owner only command."
+        )
+        return
+
+    if not context.args:
+
+        await update.message.reply_text(
+            "Usage:\n"
+            "<code>/authchat CHAT_ID</code>",
+            parse_mode=ParseMode.HTML,
+        )
+        return
+
+    try:
+
+        chat_id = int(
+            context.args[0]
+        )
+
+    except ValueError:
+
+        await update.message.reply_text(
+            "❌ Invalid chat ID."
+        )
+        return
+
+    await authorize_chat(
+        chat_id
+    )
+
+    await update.message.reply_text(
+        "✅ <b>Chat Authorized</b>\n\n"
+        f"💬 Chat ID: "
+        f"<code>{chat_id}</code>",
+        parse_mode=ParseMode.HTML,
+    )
+
+# ------------------------- #
+# Don't Remove Credit
+# Owner @Mr_Mohammed_29
+# ------------------------- #
+
+async def unauthchat_command(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+):
+
+    if not is_owner(update):
+
+        await update.message.reply_text(
+            "🚫 Owner only command."
+        )
+        return
+
+    if not context.args:
+
+        await update.message.reply_text(
+            "Usage:\n"
+            "<code>/unauthchat CHAT_ID</code>",
+            parse_mode=ParseMode.HTML,
+        )
+        return
+
+    try:
+
+        chat_id = int(
+            context.args[0]
+        )
+
+    except ValueError:
+
+        await update.message.reply_text(
+            "❌ Invalid chat ID."
+        )
+        return
+
+    await unauthorize_chat(
+        chat_id
+    )
+
+    await update.message.reply_text(
+        "✅ <b>Chat Unauthorized</b>\n\n"
+        f"💬 Chat ID: "
+        f"<code>{chat_id}</code>",
+        parse_mode=ParseMode.HTML,
+    )
+
+# ------------------------- #
+# Don't Remove Credit
+# Owner @Mr_Mohammed_29
+# ------------------------- #
+
+async def ban_command(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+):
+
+    if not is_owner(update):
+
+        await update.message.reply_text(
+            "🚫 Owner only command."
+        )
+        return
+
+    if not context.args:
+
+        await update.message.reply_text(
+            "Usage:\n"
+            "<code>/ban USER_ID</code>",
+            parse_mode=ParseMode.HTML,
+        )
+        return
+
+    try:
+
+        user_id = int(
+            context.args[0]
+        )
+
+    except ValueError:
+
+        await update.message.reply_text(
+            "❌ Invalid user ID."
+        )
+        return
+
+    await ban_user(
+        user_id
+    )
+
+    await update.message.reply_text(
+        "🚫 <b>User Banned</b>\n\n"
+        f"👤 User ID: "
+        f"<code>{user_id}</code>",
+        parse_mode=ParseMode.HTML,
+    )
+
+# ------------------------- #
+# Don't Remove Credit
+# Owner @Mr_Mohammed_29
+# ------------------------- #
+
+async def unban_command(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+):
+
+    if not is_owner(update):
+
+        await update.message.reply_text(
+            "🚫 Owner only command."
+        )
+        return
+
+    if not context.args:
+
+        await update.message.reply_text(
+            "Usage:\n"
+            "<code>/unban USER_ID</code>",
+            parse_mode=ParseMode.HTML,
+        )
+        return
+
+    try:
+
+        user_id = int(
+            context.args[0]
+        )
+
+    except ValueError:
+
+        await update.message.reply_text(
+            "❌ Invalid user ID."
+        )
+        return
+
+    await unban_user(
+        user_id
+    )
+
+    await update.message.reply_text(
+        "✅ <b>User Unbanned</b>\n\n"
+        f"👤 User ID: "
+        f"<code>{user_id}</code>",
+        parse_mode=ParseMode.HTML,
+    )
+
+
+
 # --------------------------------------------------
 # Main
 # --------------------------------------------------
@@ -1177,6 +1704,8 @@ def main():
         "Starting %s...",
         BOT_NAME,
     )
+
+    init_database()
 
     threading.Thread(
         target=run_web_server,
@@ -1197,7 +1726,6 @@ def main():
         CommandHandler(
             "start",
             start_command,
-            filters=group_filter,
         )
     )
 
@@ -1266,6 +1794,62 @@ def main():
     application.run_polling(
         allowed_updates=Update.ALL_TYPES,
         drop_pending_updates=True,
+    )
+
+    application.add_handler(
+        CommandHandler(
+            "stats",
+            stats_command,
+        )
+    )
+
+    application.add_handler(
+        CommandHandler(
+            "broadcast",
+            broadcast_command,
+        )
+    )
+
+    application.add_handler(
+        CommandHandler(
+            "authuser",
+            authuser_command,
+        )
+    )
+
+    application.add_handler(
+        CommandHandler(
+            "unauthuser",
+            unauthuser_command,
+        )
+    )
+
+    application.add_handler(
+        CommandHandler(
+            "authchat",
+            authchat_command,
+        )
+    )
+
+    application.add_handler(
+        CommandHandler(
+            "unauthchat",
+            unauthchat_command,
+        )
+    )
+
+    application.add_handler(
+        CommandHandler(
+            "ban",
+            ban_command,
+        )
+    )
+
+    application.add_handler(
+        CommandHandler(
+            "unban",
+            unban_command,
+        )
     )
 
 # ------------------------- #
