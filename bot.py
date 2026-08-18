@@ -422,7 +422,7 @@ async def handle_force_sub_callback(
 
         processing = await context.bot.send_message(
             chat_id=update.effective_chat.id,
-            text="🌐 Reading the OTT page...",
+            text="🌐 Rᴇᴀᴅɪɴɢ Tʜᴇ 𝗢𝗧𝗧 Pᴀɢᴇ...",
         )
 
         try:
@@ -435,8 +435,7 @@ async def handle_force_sub_callback(
             if not title:
 
                 await processing.edit_text(
-                    "❌ I couldn't extract a "
-                    "title from this page."
+                    "❌ I ᴄᴏᴜʟᴅɴ'ᴛ ᴇxᴛʀᴀᴄᴛ ᴀ ᴛɪᴛʟᴇ ғʀᴏᴍ ᴛʜɪs ᴘᴀɢᴇ."
                 )
 
                 return
@@ -449,8 +448,7 @@ async def handle_force_sub_callback(
             if not media:
 
                 await processing.edit_text(
-                    "❌ I couldn't find matching "
-                    "artwork for this title."
+                    "❌ I ᴄᴏᴜʟᴅɴ'ᴛ ғɪɴᴅ ᴍᴀᴛᴄʜɪɴɢ ᴀʀᴛᴡᴏʀᴋ ғᴏʀ ᴛʜɪs ᴛɪᴛʟᴇ.."
                 )
 
                 return
@@ -467,7 +465,7 @@ async def handle_force_sub_callback(
                 await context.bot.send_message(
                     chat_id=update.effective_chat.id,
                     text=(
-                        "❌ No artwork was found."
+                        "🔎 ɴᴏ ᴀʀᴛᴡᴏʀᴋ ᴡᴀs ғᴏᴜɴᴅ"
                     ),
                 )
 
@@ -517,14 +515,13 @@ async def handle_force_sub_callback(
         except Exception:
 
             logger.exception(
-                "Pending OTT execution failed"
+                "‼️ ᴘᴇɴᴅɪɴɢ 𝗢𝗧𝗧 ᴇxᴇᴄᴜᴛɪᴏɴ ғᴀɪʟᴇᴅ"
             )
 
             try:
 
                 await processing.edit_text(
-                    "⚠️ The OTT page could not "
-                    "be processed."
+                    "⚠️ ᴛʜᴇ 𝗢𝗧𝗧 ᴘᴀɢᴇ ᴄᴏᴜʟᴅ ɴᴏᴛ ʙᴇ ᴘʀᴏᴄᴇssᴇᴅ.."
                 )
 
             except Exception:
@@ -580,7 +577,7 @@ def make_navigation_buttons(
     if index > 0:
         row.append(
             InlineKeyboardButton(
-                "⬅️ Back",
+                "• ʙᴀᴄᴋ •",
                 callback_data=(
                     f"poster_prev:"
                     f"{key[0]}:"
@@ -593,7 +590,7 @@ def make_navigation_buttons(
     if index < total - 1:
         row.append(
             InlineKeyboardButton(
-                "Next ➡️",
+                "• ɴᴇxᴛ •",
                 callback_data=(
                     f"poster_next:"
                     f"{key[0]}:"
@@ -635,7 +632,7 @@ async def start_command(
         await save_chat(chat)
     except Exception:
         logger.exception(
-            "Failed to save start user/chat"
+            "‼️ 𝖥𝖺𝗂𝗅𝖾𝖽 𝗍𝗈 𝗌𝖺𝗏𝖾 𝗌𝗍𝖺𝗋𝗍 𝗎𝗌𝖾𝗋/𝖼𝗁𝖺𝗍"
         )
 
     # ------------------------- #
@@ -647,8 +644,7 @@ async def start_command(
         if await is_banned(user.id):
 
             await update.message.reply_text(
-                "🚫 <b>You are banned from using "
-                "this bot.</b>",
+                "🚫 <b>Yᴏᴜ ᴀʀᴇ ʙᴀɴɴᴇᴅ ғʀᴏᴍ ᴜsɪɴɢ ᴛʜɪs ʙᴏᴛ..contact @Mr_Mohammed_29</b>",
                 parse_mode=ParseMode.HTML,
             )
 
@@ -658,13 +654,13 @@ async def start_command(
             [
                 [
                     InlineKeyboardButton(
-                        "• join Poster group",
+                        "• ᴘᴏsᴛᴇʀ ɢʀᴏᴜᴘ •",
                         url="https://t.me/AU_Bot_Discussion",
                     )
                 ],
                 [
                     InlineKeyboardButton(
-                        "📢 Join Updates",
+                        "• ᴜᴘᴅᴀᴛᴇs •",
                         url=UPDATES_URL,
                     )
                 ],
