@@ -7,6 +7,8 @@ import asyncio
 import logging
 import threading
 import time
+import io
+import requests
 
 # ------------------------- #
 # Don't Remove Credit
@@ -944,9 +946,9 @@ async def navigation_callback(
 ):
     query = update.callback_query
 
-    await query.answer()
-
     try:
+        await query.answer()
+
         parts = query.data.split(":")
 
         action = parts[0]
@@ -970,12 +972,10 @@ async def navigation_callback(
             )
             return
 
-        # Only the person who requested
-        # the poster can control buttons.
+        # Only original user can control buttons
         if query.from_user.id != user_id:
             await query.answer(
-                "These buttons belong to "
-                "another user.",
+                "These buttons belong to another user.",
                 show_alert=True,
             )
             return
@@ -1000,19 +1000,87 @@ async def navigation_callback(
 
         item = data["items"][index]
 
+        image_url = item.get("url")
+
+        if not image_url:
+            await query.answer(
+                "❌ Image URL is missing.",
+                show_alert=True,
+            )
+            return
+
+        logger.info(
+            "Loading navigation image | url=%s",
+            image_url,
+        )
+
+        # Download image first
+        try:
+
+            response = await asyncio.to_thread(
+                requests.get,
+                image_url,
+                timeout=20,
+            )
+
+            response.raise_for_status()
+
+            content_type = (
+                response.headers.get(
+                    "Content-Type",
+                    "",
+                ).lower()
+            )
+
+            if not content_type.startswith(
+                "image/"
+            ):
+                logger.error(
+                    "Invalid image content type: %s | URL=%s",
+                    content_type,
+                    image_url,
+                )
+
+                await query.answer(
+                    "❌ This artwork URL is not a valid image.",
+                    show_alert=True,
+                )
+
+                return
+
+            image_bytes = io.BytesIO(
+                response.content
+            )
+
+            image_bytes.name = "poster.jpg"
+
+        except Exception:
+            logger.exception(
+                "Failed to download navigation image"
+            )
+
+            await query.answer(
+                "❌ Unable to load this artwork.",
+                show_alert=True,
+            )
+
+            return
+
         keyboard = make_navigation_buttons(
             key,
             index,
             len(data["items"]),
         )
 
+        caption = build_caption(
+            data["media"],
+            data["platform"],
+            item,
+        )
+
         media = InputMediaPhoto(
-            media=item["url"],
-            caption=build_caption(
-                data["media"],
-                data["platform"],
-                item,
-            ),
+            media=image_bytes,
+            caption=caption,
             parse_mode=ParseMode.HTML,
         )
 
@@ -1028,7 +1096,7 @@ async def navigation_callback(
 
         try:
             await query.answer(
-                "Unable to change artwork.",
+                "❌ Unable to change artwork.",
                 show_alert=True,
             )
         except Exception:
