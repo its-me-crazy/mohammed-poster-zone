@@ -79,6 +79,16 @@ from poster import (
 # Owner @Mr_Mohammed_29
 # ------------------------- #
 
+from mohammed.forcesub import (
+    force_sub,
+    force_sub_callback,
+)
+
+# ------------------------- #
+# Don't Remove Credit
+# Owner @Mr_Mohammed_29
+# ------------------------- #
+
 logging.basicConfig(
     format=(
         "%(asctime)s - "
@@ -434,6 +444,13 @@ async def poster_command(
     if not is_group(update):
         return
 
+    # FORCE SUB CHECK
+    if not await force_sub(
+        update,
+        context,
+    ):
+        return
+
     if not context.args:
         await update.message.reply_text(
             "❌ Enter a title.\n\n"
@@ -499,6 +516,13 @@ async def ott_command(
     context: ContextTypes.DEFAULT_TYPE,
 ):
     if not is_group(update):
+        return
+
+    # FORCE SUB CHECK
+    if not await force_sub(
+        update,
+        context,
+    ):
         return
 
     if not context.args:
@@ -791,6 +815,13 @@ def main():
         CallbackQueryHandler(
             navigation_callback,
             pattern=r"^poster_(prev|next):",
+        )
+    )
+
+    application.add_handler(
+        CallbackQueryHandler(
+            force_sub_callback,
+            pattern=r"^force_sub_check$",
         )
     )
 
