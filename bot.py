@@ -825,7 +825,7 @@ async def send_poster_result(
     if not items:
         await update.message.reply_text(
             "❌ <b>ɴᴏ ᴀʀᴛᴡᴏʀᴋ ᴡᴀs ғᴏᴜɴᴅ ғᴏʀ ᴛʜɪs ᴛɪᴛʟᴇ.</b>",
-             parse_mode=ParseMode.HTML,
+            parse_mode=ParseMode.HTML,
         )
         return
 
@@ -848,18 +848,21 @@ async def send_poster_result(
     )
 
     if not thumbnail:
-        await context.bot.send_message(
-            chat_id=update.effective_chat.id,
-            text="‼️ Fᴀɪʟᴇᴅ Tᴏ ᴄʀᴇᴀᴛᴇ ᴛʜᴜᴍʙɴᴀɪʟ.",
+        await update.message.reply_text(
+            "❌ <b>Failed to create thumbnail.</b>",
+            parse_mode=ParseMode.HTML,
         )
         return
+
+    # Make sure the file is at the beginning
+    thumbnail.seek(0)
 
     sent = await context.bot.send_photo(
         chat_id=update.effective_chat.id,
         photo=thumbnail,
         caption=build_caption(
             media,
-            "𝗠𝗼𝗵𝗮𝗺𝗺𝗲𝗱 𝗣𝗹𝗮𝘁𝗳𝗼𝗿𝗺",
+            platform,
             first,
         ),
         parse_mode=ParseMode.HTML,
@@ -889,7 +892,7 @@ async def send_poster_result(
         await sent.edit_reply_markup(
             reply_markup=keyboard
         )
-
+        
 # ------------------------- #
 # Don't Remove Credit
 # Owner @Mr_Mohammed_29
@@ -946,7 +949,7 @@ async def poster_command(
         await send_poster_result(
             update,
             media,
-            "𝗠𝗼𝗵𝗮𝗺𝗺𝗲𝗱 𝗣𝗹𝗮𝘁𝗳𝗼𝗿𝗺",
+            "Unknown Platform",
         )
 
     except Exception:
