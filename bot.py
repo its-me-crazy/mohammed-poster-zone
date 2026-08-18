@@ -951,6 +951,9 @@ async def navigation_callback(
 
         parts = query.data.split(":")
 
+        if len(parts) != 4:
+            return
+
         action = parts[0]
 
         chat_id = int(parts[1])
@@ -972,7 +975,8 @@ async def navigation_callback(
             )
             return
 
-        # Only original user can control buttons
+        # Only the user who requested the poster
+        # can control the buttons.
         if query.from_user.id != user_id:
             await query.answer(
                 "These buttons belong to another user.",
@@ -1010,53 +1014,113 @@ async def navigation_callback(
             return
 
         logger.info(
-            "Loading navigation image | url=%s",
-            image_url,
+            "Navigation | user=%s | index=%s | type=%s",
+            user_id,
+            index,
+            item.get("type"),
         )
 
-        # Download image first
-        try:
+        # --------------------------------------------------
+        # Download image
+        # --------------------------------------------------
 
+        try:
             response = await asyncio.to_thread(
-                requests.get,
+                session.get,
                 image_url,
-                timeout=20,
+                timeout=30,
             )
 
             response.raise_for_status()
 
+            content = response.content
+
+            if not content:
+                raise ValueError(
+                    "Downloaded image is empty."
+                )
+
             content_type = (
                 response.headers.get(
                     "Content-Type",
-                    "",
+                    ""
                 ).lower()
             )
 
-            if not content_type.startswith(
-                "image/"
-            ):
+            logger.info(
+                "Navigation image | status=%s | type=%s | size=%s",
+                response.status_code,
+                content_type,
+                len(content),
+            )
+
+            # --------------------------------------------------
+            # Verify actual image using Pillow
+            # --------------------------------------------------
+
+            from PIL import Image
+
+            image_buffer = io.BytesIO(content)
+
+            try:
+                image = Image.open(
+                    image_buffer
+                )
+
+                image.verify()
+
+            except Exception:
                 logger.error(
-                    "Invalid image content type: %s | URL=%s",
-                    content_type,
+                    "Downloaded content is not a valid image | URL=%s",
                     image_url,
                 )
 
                 await query.answer(
-                    "❌ This artwork URL is not a valid image.",
+                    "❌ This artwork is not a valid image.",
                     show_alert=True,
                 )
 
                 return
 
-            image_bytes = io.BytesIO(
-                response.content
+            # Re-open image after verify()
+            image_buffer.seek(0)
+
+            # --------------------------------------------------
+            # Telegram-compatible JPEG
+            # --------------------------------------------------
+
+            image_buffer = io.BytesIO()
+
+            image = Image.open(
+                io.BytesIO(content)
             )
 
-            image_bytes.name = "poster.jpg"
+            # Convert formats such as WEBP/PNG
+            # into JPEG for maximum compatibility.
+            if image.mode not in (
+                "RGB",
+                "L",
+            ):
+                image = image.convert("RGB")
+
+            image.thumbnail(
+                (2000, 2000)
+            )
+
+            image.save(
+                image_buffer,
+                format="JPEG",
+                quality=92,
+                optimize=True,
+            )
+
+            image_buffer.seek(0)
+
+            image_buffer.name = "poster.jpg"
 
         except Exception:
             logger.exception(
-                "Failed to download navigation image"
+                "Failed to prepare navigation image"
             )
 
             await query.answer(
@@ -1066,11 +1130,19 @@ async def navigation_callback(
 
             return
 
+        # --------------------------------------------------
+        # Keyboard
+        # --------------------------------------------------
+
         keyboard = make_navigation_buttons(
             key,
             index,
             len(data["items"]),
         )
+
+        # --------------------------------------------------
+        # Caption
+        # --------------------------------------------------
 
         caption = build_caption(
             data["media"],
@@ -1078,16 +1150,34 @@ async def navigation_callback(
             item,
         )
 
-        media = InputMediaPhoto(
-            media=image_bytes,
-            caption=caption,
-            parse_mode=ParseMode.HTML,
-        )
+        # --------------------------------------------------
+        # Replace existing Telegram photo
+        # --------------------------------------------------
 
-        await query.message.edit_media(
-            media=media,
-            reply_markup=keyboard,
-        )
+        try:
+
+            media = InputMediaPhoto(
+                media=image_buffer,
+                caption=caption,
+                parse_mode=ParseMode.HTML,
+            )
+
+            await query.message.edit_media(
+                media=media,
+                reply_markup=keyboard,
+            )
+
+        except Exception:
+            logger.exception(
+                "Telegram edit_media failed"
+            )
+
+            await query.answer(
+                "❌ Telegram could not update this artwork.",
+                show_alert=True,
+            )
+
+            return
 
     except Exception:
         logger.exception(
