@@ -26,17 +26,17 @@ logger = logging.getLogger(
 # ============================================================
 
 # Your force-sub channel
-FSUB_CHANNEL = "@Anime_UpdatesAU"
+FSUB_CHANNEL = "@Aero_Unity"
 
 # Public channel:
 # https://t.me/Anime_UpdatesAU
 #
 # Private channel:
 # Put your private invite link here.
-FSUB_INVITE_LINK = "https://t.me/Anime_UpdatesAU"
+FSUB_INVITE_LINK = "https://t.me/Aero_Unity"
 
 # Your Telegram user ID
-OWNER_ID = 123456789
+OWNER_ID = 7284759394
 
 
 # ============================================================
