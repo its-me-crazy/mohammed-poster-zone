@@ -36,20 +36,9 @@ OWNER_ID = 7284759394
 
 
 # ============================================================
-# PENDING REQUEST STORAGE
+# PENDING REQUESTS
 # ============================================================
 
-# Stores commands blocked by Force Subscribe.
-#
-# Example:
-#
-# user_id:
-# {
-#     "command": "poster",
-#     "args": ["Reacher"],
-#     "created_at": 123456789
-# }
-#
 PENDING_REQUESTS = {}
 
 PENDING_TTL = 10 * 60
@@ -71,7 +60,7 @@ def is_group(update: Update) -> bool:
 
 
 # ============================================================
-# CLEANUP PENDING REQUESTS
+# CLEANUP
 # ============================================================
 
 def cleanup_pending_requests():
@@ -80,50 +69,68 @@ def cleanup_pending_requests():
 
     expired = []
 
-    for user_id, data in PENDING_REQUESTS.items():
+    for user_id, data in list(
+        PENDING_REQUESTS.items()
+    ):
 
-        if (
-            now - data["created_at"]
-            > PENDING_TTL
-        ):
+        created_at = data.get(
+            "created_at",
+            now,
+        )
+
+        if now - created_at > PENDING_TTL:
+
             expired.append(user_id)
 
     for user_id in expired:
+
         PENDING_REQUESTS.pop(
             user_id,
             None,
         )
 
+        logger.info(
+            "Expired pending request | user=%s",
+            user_id,
+        )
+
 
 # ============================================================
-# SAVE PENDING REQUEST
+# SAVE
 # ============================================================
 
 def save_pending_request(
     user_id: int,
     command: str,
     args: list,
+    chat_id: int,
 ):
 
     cleanup_pending_requests()
 
     PENDING_REQUESTS[int(user_id)] = {
+
         "command": command,
+
         "args": list(args),
+
+        "chat_id": int(chat_id),
+
         "created_at": time.time(),
     }
 
     logger.info(
         "Saved pending request | "
-        "user=%s | command=%s | args=%s",
+        "user=%s | command=%s | args=%s | chat=%s",
         user_id,
         command,
         args,
+        chat_id,
     )
 
 
 # ============================================================
-# GET PENDING REQUEST
+# GET
 # ============================================================
 
 def get_pending_request(
@@ -138,7 +145,7 @@ def get_pending_request(
 
 
 # ============================================================
-# CLEAR PENDING REQUEST
+# CLEAR
 # ============================================================
 
 def clear_pending_request(
@@ -152,12 +159,17 @@ def clear_pending_request(
 
 
 # ============================================================
-# MEMBER STATUS CHECK
+# MEMBER STATUS
 # ============================================================
 
 def member_is_joined(member) -> bool:
 
-    status = member.status
+    status = str(
+        member.status
+    ).lower()
+
+    # Telegram constants can be strings
+    # such as member/administrator/creator.
 
     if status in (
         "creator",
@@ -194,14 +206,23 @@ async def check_membership(
 
     if int(user_id) == int(OWNER_ID):
 
+        logger.info(
+            "Force-sub owner bypass | user=%s",
+            user_id,
+        )
+
         return True
 
     try:
 
         member = await context.bot.get_chat_member(
             chat_id=FSUB_CHANNEL,
-            user_id=user_id,
+            user_id=int(user_id),
         )
+
+        status = str(
+            member.status
+        ).lower()
 
         joined = member_is_joined(
             member
@@ -211,7 +232,7 @@ async def check_membership(
             "Force-sub check | "
             "user=%s | status=%s | joined=%s",
             user_id,
-            member.status,
+            status,
             joined,
         )
 
@@ -263,20 +284,28 @@ async def send_force_sub(
 ):
 
     if not update.message:
+
         return
 
     await update.message.reply_text(
+
         "🔒 <b>Join Required</b>\n\n"
+
         "You must join our channel before "
         "using <b>Mohammed Poster Zone</b>.\n\n"
+
         f"📢 <b>Required Channel:</b>\n"
         f"{FSUB_CHANNEL}\n\n"
+
         "1️⃣ Tap <b>Join Channel</b>\n"
         "2️⃣ Join the channel\n"
         "3️⃣ Come back here\n"
         "4️⃣ Tap <b>Try Again</b>",
+
         parse_mode=ParseMode.HTML,
+
         reply_markup=force_sub_keyboard(),
+
         disable_web_page_preview=True,
     )
 
@@ -299,7 +328,7 @@ async def force_sub(
         return True
 
     # --------------------------------------------------------
-    # USER CHECK
+    # USER
     # --------------------------------------------------------
 
     user = update.effective_user
@@ -308,18 +337,22 @@ async def force_sub(
 
         return True
 
-    user_id = user.id
+    user_id = int(
+        user.id
+    )
+
+    chat = update.effective_chat
 
     # --------------------------------------------------------
-    # OWNER BYPASS
+    # OWNER
     # --------------------------------------------------------
 
-    if int(user_id) == int(OWNER_ID):
+    if user_id == int(OWNER_ID):
 
         return True
 
     # --------------------------------------------------------
-    # CHECK MEMBERSHIP
+    # CHECK
     # --------------------------------------------------------
 
     joined = await check_membership(
@@ -329,52 +362,58 @@ async def force_sub(
 
     if joined:
 
-        # If already joined, remove
-        # any old pending request.
-
-        clear_pending_request(
-            user_id
-        )
-
         return True
 
     # --------------------------------------------------------
-    # SAVE CURRENT COMMAND
+    # SAVE COMMAND
     # --------------------------------------------------------
 
     command = ""
-
     args = []
 
     if update.message:
 
-        if update.message.text:
+        text = (
+            update.message.text
+            or update.message.caption
+            or ""
+        ).strip()
 
-            text = update.message.text.strip()
+        if text.startswith("/"):
 
-            if text.startswith("/"):
+            parts = text.split()
 
-                parts = text.split()
+            command = (
+                parts[0]
+                .split("@")[0]
+                .lstrip("/")
+                .lower()
+            )
 
-                command = (
-                    parts[0]
-                    .split("@")[0]
-                    .lstrip("/")
-                    .lower()
-                )
+            args = parts[1:]
 
-                args = parts[1:]
+    # --------------------------------------------------------
+    # SAVE ONLY SUPPORTED COMMANDS
+    # --------------------------------------------------------
 
-    if command:
+    if command in (
+        "poster",
+        "ott",
+    ):
 
         save_pending_request(
+
             user_id=user_id,
+
             command=command,
+
             args=args,
+
+            chat_id=chat.id,
         )
 
     # --------------------------------------------------------
-    # SEND FORCE SUB MESSAGE
+    # SEND MESSAGE
     # --------------------------------------------------------
 
     await send_force_sub(
@@ -397,18 +436,20 @@ async def force_sub_callback(
 
     if not query:
 
-        return False
+        return
 
     user = query.from_user
 
     if not user:
 
-        return False
+        return
 
-    user_id = user.id
+    user_id = int(
+        user.id
+    )
 
     # --------------------------------------------------------
-    # CHECK MEMBERSHIP
+    # CHECK MEMBERSHIP AGAIN
     # --------------------------------------------------------
 
     joined = await check_membership(
@@ -419,14 +460,17 @@ async def force_sub_callback(
     if not joined:
 
         await query.answer(
-            "❌ You have not joined the channel yet.",
+
+            "❌ You have not joined "
+            "the channel yet.",
+
             show_alert=True,
         )
 
-        return False
+        return
 
     # --------------------------------------------------------
-    # GET PENDING REQUEST
+    # GET PENDING
     # --------------------------------------------------------
 
     pending = get_pending_request(
@@ -438,17 +482,25 @@ async def force_sub_callback(
     # --------------------------------------------------------
 
     await query.answer(
-        "✅ Subscription verified!",
-        show_alert=True,
+        "✅ Subscription verified!"
+    )
+
+    logger.info(
+        "Force-sub verified | "
+        "user=%s | pending=%s",
+        user_id,
+        pending,
     )
 
     # --------------------------------------------------------
-    # DELETE FORCE SUB MESSAGE
+    # DELETE FORCE-SUB MESSAGE
     # --------------------------------------------------------
 
     try:
 
-        await query.message.delete()
+        if query.message:
+
+            await query.message.delete()
 
     except Exception as e:
 
@@ -463,17 +515,29 @@ async def force_sub_callback(
 
     if not pending:
 
-        return None
+        logger.info(
+            "No pending request | user=%s",
+            user_id,
+        )
+
+        return
 
     clear_pending_request(
         user_id
     )
 
-    logger.info(
-        "Force-sub verified | "
-        "user=%s | pending=%s",
-        user_id,
-        pending,
-    )
+    # --------------------------------------------------------
+    # STORE FOR MAIN CALLBACK
+    # --------------------------------------------------------
 
-    return pending
+    context.user_data[
+        "force_sub_pending"
+    ] = pending
+
+    logger.info(
+        "Pending request released | "
+        "user=%s | command=%s | args=%s",
+        user_id,
+        pending["command"],
+        pending["args"],
+    )
