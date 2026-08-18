@@ -331,7 +331,7 @@ async def handle_force_sub_callback(
                 photo=first["url"],
                 caption=build_caption(
                     media,
-                    "𝗠𝗼𝗵𝗮𝗺𝗺𝗲𝗱 𝗣𝗹𝗮𝘁𝗳𝗼𝗿𝗺",
+                    "Unknown Platform",
                     first,
                 ),
                 parse_mode=ParseMode.HTML,
@@ -349,7 +349,7 @@ async def handle_force_sub_callback(
                 "items": items,
                 "index": 0,
                 "media": media,
-                "platform": "𝗠𝗼𝗵𝗮𝗺𝗺𝗲𝗱 𝗣𝗹𝗮𝘁𝗳𝗼𝗿𝗺",
+                "platform": "Unknown Platform",
                 "created_at": time.time(),
             }
 
