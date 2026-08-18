@@ -5,21 +5,16 @@
 
 import html
 import re
+import io
+import logging
+
 from typing import Optional
 from urllib.parse import urlparse
-
-# ------------------------- #
-# Don't Remove Credit
-# Owner @Mr_Mohammed_29
-# ------------------------- #
 
 import requests
 from bs4 import BeautifulSoup
 
-# ------------------------- #
-# Don't Remove Credit
-# Owner @Mr_Mohammed_29
-# ------------------------- #
+from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
 from config import (
     TMDB_API_KEY,
@@ -27,26 +22,29 @@ from config import (
     REQUEST_TIMEOUT,
 )
 
-import logging
+# ------------------------- #
+# Don't Remove Credit
+# Owner @Mr_Mohammed_29
+# ------------------------- #
 
 logger = logging.getLogger(
     "mohammed-poster"
 )
 
 # ------------------------- #
-# Don't Remove Credit
-# Owner @Mr_Mohammed_29
+# TMDB
 # ------------------------- #
 
 TMDB_BASE = "https://api.themoviedb.org/3"
 
+# Smaller source image.
+# We don't use "original" anymore.
 IMAGE_BASE = (
-    "https://image.tmdb.org/t/p/original"
+    "https://image.tmdb.org/t/p/w780"
 )
 
 # ------------------------- #
-# Don't Remove Credit
-# Owner @Mr_Mohammed_29
+# Requests session
 # ------------------------- #
 
 session = requests.Session()
@@ -62,8 +60,7 @@ session.headers.update({
 })
 
 # ------------------------- #
-# Don't Remove Credit
-# Owner @Mr_Mohammed_29
+# TMDB request
 # ------------------------- #
 
 def tmdb_get(
@@ -102,11 +99,11 @@ def tmdb_get(
     return response.json()
 
 # ------------------------- #
-# Don't Remove Credit
-# Owner @Mr_Mohammed_29
+# Clean title
 # ------------------------- #
 
 def clean_title(title: str) -> str:
+
     if not title:
         return ""
 
@@ -143,6 +140,7 @@ def clean_title(title: str) -> str:
     ]
 
     for pattern in suffixes:
+
         title = re.sub(
             pattern,
             "",
@@ -153,8 +151,7 @@ def clean_title(title: str) -> str:
     return title.strip()
 
 # ------------------------- #
-# Don't Remove Credit
-# Owner @Mr_Mohammed_29
+# Extract title from OTT URL
 # ------------------------- #
 
 def extract_title_from_url(
@@ -162,6 +159,7 @@ def extract_title_from_url(
 ) -> Optional[str]:
 
     try:
+
         parsed = urlparse(url)
 
         if parsed.scheme not in (
@@ -190,94 +188,135 @@ def extract_title_from_url(
         )
 
         if meta:
-            content = meta.get("content")
+
+            content = meta.get(
+                "content"
+            )
 
             if content:
-                return clean_title(content)
+                return clean_title(
+                    content
+                )
 
         # Twitter title
         meta = soup.find(
             "meta",
             attrs={
-                "name": "twitter:title",
+                "name": "twitter:title"
             },
         )
 
         if meta:
-            content = meta.get("content")
+
+            content = meta.get(
+                "content"
+            )
 
             if content:
-                return clean_title(content)
+                return clean_title(
+                    content
+                )
 
-        # Normal page title
+        # Normal title
         if soup.title:
+
             title = soup.title.get_text(
                 " ",
                 strip=True,
             )
 
             if title:
-                return clean_title(title)
+                return clean_title(
+                    title
+                )
 
     except Exception:
+
+        logger.exception(
+            "Failed to extract title from URL"
+        )
+
         return None
 
     return None
 
 # ------------------------- #
-# Don't Remove Credit
-# Owner @Mr_Mohammed_29
+# Search movie
 # ------------------------- #
 
-def search_movie(title: str):
+def search_movie(
+    title: str,
+):
+
     return tmdb_get(
         "/search/movie",
         {
             "query": title,
             "include_adult": "false",
         },
-    ).get("results", [])
+    ).get(
+        "results",
+        [],
+    )
 
 # ------------------------- #
-# Don't Remove Credit
-# Owner @Mr_Mohammed_29
+# Search TV
 # ------------------------- #
 
-def search_tv(title: str):
+def search_tv(
+    title: str,
+):
+
     return tmdb_get(
         "/search/tv",
         {
             "query": title,
             "include_adult": "false",
         },
-    ).get("results", [])
+    ).get(
+        "results",
+        [],
+    )
 
 # ------------------------- #
-# Don't Remove Credit
-# Owner @Mr_Mohammed_29
+# Candidate
 # ------------------------- #
 
 def make_candidate(
     item: dict,
     media_type: str,
 ):
-    if not item.get("poster_path"):
+
+    if not item.get(
+        "poster_path"
+    ):
         return None
 
     if media_type == "movie":
-        name = item.get("title")
+
+        name = item.get(
+            "title"
+        )
+
         original = item.get(
             "original_title"
         )
+
         date = item.get(
             "release_date",
             "",
         )
+
     else:
-        name = item.get("name")
+
+        name = item.get(
+            "name"
+        )
+
         original = item.get(
             "original_name"
         )
+
         date = item.get(
             "first_air_date",
             "",
@@ -285,13 +324,25 @@ def make_candidate(
 
     return {
         "media_type": media_type,
-        "id": item.get("id"),
+
+        "id": item.get(
+            "id"
+        ),
+
         "title": name,
+
         "original_title": original,
-        "year": date[:4] if date else "",
+
+        "year": (
+            date[:4]
+            if date
+            else ""
+        ),
+
         "poster_path": item.get(
             "poster_path"
         ),
+
         "overview": item.get(
             "overview",
             "",
@@ -299,48 +350,67 @@ def make_candidate(
     }
 
 # ------------------------- #
-# Don't Remove Credit
-# Owner @Mr_Mohammed_29
+# Search media
 # ------------------------- #
 
-def search_media(title: str):
-    title = clean_title(title)
+def search_media(
+    title: str,
+):
+
+    title = clean_title(
+        title
+    )
 
     if not title:
         return None
 
-    movies = search_movie(title)
-    tvs = search_tv(title)
+    movies = search_movie(
+        title
+    )
+
+    tvs = search_tv(
+        title
+    )
 
     candidates = []
 
     for item in movies:
+
         candidate = make_candidate(
             item,
             "movie",
         )
 
         if candidate:
-            candidates.append(candidate)
+            candidates.append(
+                candidate
+            )
 
     for item in tvs:
+
         candidate = make_candidate(
             item,
             "tv",
         )
 
         if candidate:
-            candidates.append(candidate)
+            candidates.append(
+                candidate
+            )
 
     if not candidates:
         return None
 
-    # Prefer exact title matches.
-    normalized = title.lower().strip()
+    normalized = (
+        title.lower().strip()
+    )
 
+    # Exact match first
     for candidate in candidates:
+
         candidate_title = (
-            candidate["title"] or ""
+            candidate["title"]
+            or ""
         ).lower().strip()
 
         original_title = (
@@ -349,30 +419,36 @@ def search_media(title: str):
         ).lower().strip()
 
         if (
-            candidate_title == normalized
-            or original_title == normalized
+            candidate_title
+            == normalized
+            or original_title
+            == normalized
         ):
             return candidate
 
     return candidates[0]
 
 # ------------------------- #
-# Don't Remove Credit
-# Owner @Mr_Mohammed_29
+# Image URL
 # ------------------------- #
 
-def image_url(path: Optional[str]):
+def image_url(
+    path: Optional[str],
+):
+
     if not path:
         return None
 
     return IMAGE_BASE + path
 
 # ------------------------- #
-# Don't Remove Credit
-# Owner @Mr_Mohammed_29
+# Get media images
 # ------------------------- #
 
-def get_media_images(media: dict):
+def get_media_images(
+    media: dict,
+):
+
     endpoint = (
         f"/{media['media_type']}/"
         f"{media['id']}/images"
@@ -406,11 +482,15 @@ def get_media_images(media: dict):
 
     # Portrait
     for item in posters:
+
         url = image_url(
-            item.get("file_path")
+            item.get(
+                "file_path"
+            )
         )
 
         if url:
+
             artwork.append({
                 "type": "Portrait",
                 "url": url,
@@ -426,11 +506,15 @@ def get_media_images(media: dict):
 
     # Cover
     for item in backdrops:
+
         url = image_url(
-            item.get("file_path")
+            item.get(
+                "file_path"
+            )
         )
 
         if url:
+
             artwork.append({
                 "type": "Cover",
                 "url": url,
@@ -446,11 +530,15 @@ def get_media_images(media: dict):
 
     # Logo
     for item in logos:
+
         url = image_url(
-            item.get("file_path")
+            item.get(
+                "file_path"
+            )
         )
 
         if url:
+
             artwork.append({
                 "type": "Logo",
                 "url": url,
@@ -467,11 +555,13 @@ def get_media_images(media: dict):
     return artwork
 
 # ------------------------- #
-# Don't Remove Credit
-# Owner @Mr_Mohammed_29
+# Sort artwork
 # ------------------------- #
 
-def sort_artwork(items):
+def sort_artwork(
+    items,
+):
+
     return sorted(
         items,
         key=lambda item: (
@@ -482,11 +572,13 @@ def sort_artwork(items):
     )
 
 # ------------------------- #
-# Don't Remove Credit
-# Owner @Mr_Mohammed_29
+# Best artwork
 # ------------------------- #
 
-def get_best_artwork(media):
+def get_best_artwork(
+    media,
+):
+
     all_artwork = get_media_images(
         media
     )
@@ -498,23 +590,25 @@ def get_best_artwork(media):
     }
 
     for item in all_artwork:
+
         grouped[
             item["type"]
         ].append(item)
 
     result = []
 
-    # One best image from each category.
     for category in (
         "Portrait",
         "Cover",
         "Logo",
     ):
+
         images = sort_artwork(
             grouped[category]
         )
 
         if images:
+
             result.append(
                 images[0]
             )
@@ -522,11 +616,13 @@ def get_best_artwork(media):
     return result
 
 # ------------------------- #
-# Don't Remove Credit
-# Owner @Mr_Mohammed_29
+# TV details
 # ------------------------- #
 
-def get_tv_details(media):
+def get_tv_details(
+    media,
+):
+
     if media["media_type"] != "tv":
         return None
 
@@ -535,11 +631,13 @@ def get_tv_details(media):
     )
 
 # ------------------------- #
-# Don't Remove Credit
-# Owner @Mr_Mohammed_29
+# Seasons
 # ------------------------- #
 
-def get_seasons(media):
+def get_seasons(
+    media,
+):
+
     details = get_tv_details(
         media
     )
@@ -553,6 +651,7 @@ def get_seasons(media):
         "seasons",
         [],
     ):
+
         number = season.get(
             "season_number"
         )
@@ -560,20 +659,22 @@ def get_seasons(media):
         if number is None:
             continue
 
-        # Skip specials.
         if number == 0:
             continue
 
         seasons.append({
             "number": number,
+
             "name": season.get(
                 "name",
                 f"Season {number}",
             ),
+
             "episode_count": season.get(
                 "episode_count",
                 0,
             ),
+
             "poster_path": season.get(
                 "poster_path"
             ),
@@ -582,14 +683,14 @@ def get_seasons(media):
     return seasons
 
 # ------------------------- #
-# Don't Remove Credit
-# Owner @Mr_Mohammed_29
+# Season poster
 # ------------------------- #
 
 def get_season_poster(
     series_id: int,
     season_number: int,
 ):
+
     data = tmdb_get(
         f"/tv/{series_id}/season/"
         f"{season_number}",
@@ -611,6 +712,7 @@ def get_season_poster(
     )
 
     if posters:
+
         posters = sort_artwork(
             posters
         )
@@ -620,23 +722,26 @@ def get_season_poster(
         )
 
         if path:
-            return image_url(path)
+            return image_url(
+                path
+            )
 
-    # Fallback to season poster_path.
     path = data.get(
         "poster_path"
     )
 
-    return image_url(path)
+    return image_url(
+        path
+    )
 
 # ------------------------- #
-# Don't Remove Credit
-# Owner @Mr_Mohammed_29
+# Navigation items
 # ------------------------- #
 
 def build_navigation_items(
     media,
 ):
+
     items = []
 
     artwork = get_best_artwork(
@@ -644,6 +749,7 @@ def build_navigation_items(
     )
 
     for item in artwork:
+
         items.append({
             "type": item["type"],
             "url": item["url"],
@@ -672,24 +778,28 @@ def build_navigation_items(
                     f"{season['number']} "
                     f"Portrait"
                 ),
+
                 "url": poster,
+
                 "season": season,
             })
 
     return items
 
 # ------------------------- #
-# Don't Remove Credit
-# Owner @Mr_Mohammed_29
+# Media title
 # ------------------------- #
 
 def media_title(
     media,
     season=None,
 ):
+
     title = (
         media.get("title")
+        or media.get("name")
         or media.get("original_title")
+        or media.get("original_name")
         or "Unknown"
     )
 
@@ -703,11 +813,13 @@ def media_title(
     )
 
     if year:
+
         result += (
             f" - ({html.escape(year)})"
         )
 
     if season:
+
         result += (
             f" "
             f"{html.escape(season['name'])}"
@@ -715,16 +827,365 @@ def media_title(
 
     return result
 
-# ------------------------- #
-# Don't Remove Credit
-# Owner @Mr_Mohammed_29
-# ------------------------- #
+# ==================================================
+# CREATE RELEASE-STYLE THUMBNAIL
+# ==================================================
+
+def create_thumbnail(
+    image_url_value: str,
+    title: str,
+):
+
+    try:
+
+        response = session.get(
+            image_url_value,
+            timeout=REQUEST_TIMEOUT,
+        )
+
+        response.raise_for_status()
+
+        source = Image.open(
+            io.BytesIO(
+                response.content
+            )
+        ).convert("RGB")
+
+        # ------------------------------------------
+        # 16:9 output
+        # ------------------------------------------
+
+        target_width = 1280
+        target_height = 720
+
+        source_ratio = (
+            source.width
+            / source.height
+        )
+
+        target_ratio = (
+            target_width
+            / target_height
+        )
+
+        if source_ratio > target_ratio:
+
+            # Too wide
+            new_height = target_height
+
+            new_width = int(
+                new_height
+                * source_ratio
+            )
+
+        else:
+
+            # Too tall
+            new_width = target_width
+
+            new_height = int(
+                new_width
+                / source_ratio
+            )
+
+        source = source.resize(
+            (
+                new_width,
+                new_height,
+            ),
+            Image.Resampling.LANCZOS,
+        )
+
+        # Center crop
+        left = (
+            new_width
+            - target_width
+        ) // 2
+
+        top = (
+            new_height
+            - target_height
+        ) // 2
+
+        source = source.crop(
+            (
+                left,
+                top,
+                left + target_width,
+                top + target_height,
+            )
+        )
+
+        # ------------------------------------------
+        # Slight dark overlay at bottom
+        # ------------------------------------------
+
+        overlay = Image.new(
+            "RGBA",
+            source.size,
+            (
+                0,
+                0,
+                0,
+                0,
+            ),
+        )
+
+        draw = ImageDraw.Draw(
+            overlay
+        )
+
+        gradient_height = 260
+
+        for y in range(
+            target_height
+            - gradient_height,
+            target_height,
+        ):
+
+            alpha = int(
+                180
+                * (
+                    y
+                    - (
+                        target_height
+                        - gradient_height
+                    )
+                )
+                / gradient_height
+            )
+
+            draw.line(
+                (
+                    0,
+                    y,
+                    target_width,
+                    y,
+                ),
+                fill=(
+                    0,
+                    0,
+                    0,
+                    alpha,
+                ),
+            )
+
+        source = Image.alpha_composite(
+            source.convert("RGBA"),
+            overlay,
+        )
+
+        # ------------------------------------------
+        # Title
+        # ------------------------------------------
+
+        draw = ImageDraw.Draw(
+            source
+        )
+
+        # Try common fonts
+        font_paths = [
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+            "/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf",
+        ]
+
+        font = None
+
+        for font_path in font_paths:
+
+            try:
+
+                font = ImageFont.truetype(
+                    font_path,
+                    58,
+                )
+
+                break
+
+            except Exception:
+                continue
+
+        if font is None:
+
+            font = ImageFont.load_default()
+
+        # ------------------------------------------
+        # Wrap title
+        # ------------------------------------------
+
+        clean = re.sub(
+            r"\s+",
+            " ",
+            title,
+        ).strip()
+
+        max_width = 1100
+
+        words = clean.split()
+
+        lines = []
+
+        current = ""
+
+        for word in words:
+
+            test = (
+                f"{current} {word}"
+                if current
+                else word
+            )
+
+            bbox = draw.textbbox(
+                (0, 0),
+                test,
+                font=font,
+            )
+
+            width = (
+                bbox[2]
+                - bbox[0]
+            )
+
+            if width <= max_width:
+
+                current = test
+
+            else:
+
+                if current:
+                    lines.append(
+                        current
+                    )
+
+                current = word
+
+        if current:
+            lines.append(
+                current
+            )
+
+        # Maximum 2 lines
+        if len(lines) > 2:
+
+            lines = [
+                " ".join(
+                    words[
+                        :len(words)//2
+                    ]
+                ),
+                " ".join(
+                    words[
+                        len(words)//2:
+                    ]
+                ),
+            ]
+
+        # ------------------------------------------
+        # Draw title
+        # ------------------------------------------
+
+        line_height = 70
+
+        total_height = (
+            len(lines)
+            * line_height
+        )
+
+        start_y = (
+            target_height
+            - total_height
+            - 55
+        )
+
+        for line in lines:
+
+            bbox = draw.textbbox(
+                (0, 0),
+                line,
+                font=font,
+            )
+
+            text_width = (
+                bbox[2]
+                - bbox[0]
+            )
+
+            x = (
+                target_width
+                - text_width
+            ) // 2
+
+            # Shadow
+            draw.text(
+                (
+                    x + 3,
+                    start_y + 3,
+                ),
+                line,
+                font=font,
+                fill=(
+                    0,
+                    0,
+                    0,
+                    220,
+                ),
+            )
+
+            # Main text
+            draw.text(
+                (
+                    x,
+                    start_y,
+                ),
+                line,
+                font=font,
+                fill="white",
+            )
+
+            start_y += line_height
+
+        # ------------------------------------------
+        # Compress JPEG
+        # ------------------------------------------
+
+        output = io.BytesIO()
+
+        source.convert(
+            "RGB"
+        ).save(
+            output,
+            format="JPEG",
+            quality=82,
+            optimize=True,
+            progressive=True,
+        )
+
+        output.seek(0)
+
+        output.name = (
+            "mohammed_poster.jpg"
+        )
+
+        return output
+
+    except Exception:
+
+        logger.exception(
+            "Thumbnail generation failed"
+        )
+
+        return None
+
+# ==================================================
+# Caption
+# ==================================================
 
 def build_caption(
     media,
     platform,
     artwork,
 ):
+
     current_type = html.escape(
         artwork["type"]
     )
@@ -743,7 +1204,7 @@ def build_caption(
         f"<b>Current:</b> "
         f"{current_type}\n\n"
         f"<b>{title}</b>\n\n"
-        "Powered by TMDB."
+        "Powered by @Aero_Unity."
     )
 
 # ------------------------- #
