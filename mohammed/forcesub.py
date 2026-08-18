@@ -3,59 +3,121 @@
 # Owner @Mr_Mohammed_29
 # ------------------------- #
 
+import logging
+
 from telegram import (
     Update,
     InlineKeyboardButton,
     InlineKeyboardMarkup,
 )
 from telegram.constants import ParseMode
-from telegram.ext import (
-    ContextTypes,
-)
-
-import logging
+from telegram.ext import ContextTypes
 
 
-logger = logging.getLogger(
-    "mohammed-force-sub"
-)
+# ============================================================
+# LOGGER
+# ============================================================
+
+logger = logging.getLogger("mohammed-force-sub")
 
 
 # ============================================================
 # FORCE SUB CONFIG
 # ============================================================
 
-# Your force-sub channel
-FSUB_CHANNEL = "@Aero_Unity"
+# ------------------------------------------------------------
+# IMPORTANT:
+#
+# You can use either:
+#
+# 1. Public username:
+#    FSUB_CHANNEL = "@Aero_Unity"
+#
+# OR
+#
+# 2. Numeric Telegram channel ID:
+#    FSUB_CHANNEL = -1001234567890
+#
+# Numeric channel ID is recommended.
+# ------------------------------------------------------------
 
+FSUB_CHANNEL = "-1004471112743"
+
+
+# Button URL
+#
 # Public channel:
-# https://t.me/Anime_UpdatesAU
+# https://t.me/Aero_Unity
 #
 # Private channel:
-# Put your private invite link here.
+# Put the actual private invite link here.
+#
 FSUB_INVITE_LINK = "https://t.me/Aero_Unity"
+
 
 # Your Telegram user ID
 OWNER_ID = 7284759394
 
 
 # ============================================================
-# CHECK GROUP
+# CHECK IF CHAT IS GROUP
 # ============================================================
 
-def is_group(update: Update):
+def is_group(update: Update) -> bool:
 
-    if not update.effective_chat:
+    chat = update.effective_chat
+
+    if not chat:
         return False
 
-    return update.effective_chat.type in (
+    return chat.type in (
         "group",
         "supergroup",
     )
 
 
 # ============================================================
-# CHECK FORCE SUB
+# CHECK IF MEMBER IS ACTUALLY JOINED
+# ============================================================
+
+def member_is_joined(member) -> bool:
+    """
+    Check Telegram ChatMember status safely.
+
+    Accepted:
+        creator
+        administrator
+        member
+        restricted (only when is_member=True)
+
+    Rejected:
+        left
+        kicked
+        anything unknown
+    """
+
+    status = member.status
+
+    # Owner/admin/member
+    if status in (
+        "creator",
+        "administrator",
+        "member",
+    ):
+        return True
+
+    # Restricted users can still be members.
+    # We must check is_member.
+    if status == "restricted":
+        return bool(
+            getattr(member, "is_member", False)
+        )
+
+    return False
+
+
+# ============================================================
+# CHECK FORCE SUB MEMBERSHIP
 # ============================================================
 
 async def check_membership(
@@ -63,33 +125,50 @@ async def check_membership(
     user_id: int,
 ) -> bool:
 
-    # Owner bypass
+    # --------------------------------------------------------
+    # OWNER BYPASS
+    # --------------------------------------------------------
+
     if int(user_id) == int(OWNER_ID):
+        logger.info(
+            "Force-sub bypass for owner: %s",
+            user_id,
+        )
         return True
 
     try:
+
+        # ----------------------------------------------------
+        # GET TELEGRAM MEMBER INFORMATION
+        # ----------------------------------------------------
 
         member = await context.bot.get_chat_member(
             chat_id=FSUB_CHANNEL,
             user_id=user_id,
         )
 
-        status = member.status
+        # ----------------------------------------------------
+        # CHECK STATUS
+        # ----------------------------------------------------
 
-        if status in (
-            "creator",
-            "administrator",
-            "member",
-            "restricted",
-        ):
-            return True
+        joined = member_is_joined(member)
 
-        return False
+        logger.info(
+            "Force-sub check | user=%s | status=%s | joined=%s",
+            user_id,
+            member.status,
+            joined,
+        )
+
+        return joined
 
     except Exception as e:
 
         logger.error(
-            "Force-sub check failed: %s",
+            "Force-sub check failed | "
+            "channel=%s | user=%s | error=%s",
+            FSUB_CHANNEL,
+            user_id,
             e,
         )
 
@@ -97,54 +176,57 @@ async def check_membership(
 
 
 # ============================================================
-# FORCE SUB BUTTONS
+# FORCE SUB KEYBOARD
 # ============================================================
 
-def force_sub_keyboard():
+def force_sub_keyboard() -> InlineKeyboardMarkup:
 
-    return InlineKeyboardMarkup(
+    keyboard = [
         [
-            [
-                InlineKeyboardButton(
-                    "📢 Join Channel",
-                    url=FSUB_INVITE_LINK,
-                )
-            ],
-            [
-                InlineKeyboardButton(
-                    "🔄 Try Again",
-                    callback_data="force_sub_check",
-                )
-            ],
-        ]
-    )
+            InlineKeyboardButton(
+                "📢 Join Channel",
+                url=FSUB_INVITE_LINK,
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                "🔄 Try Again",
+                callback_data="force_sub_check",
+            )
+        ],
+    ]
+
+    return InlineKeyboardMarkup(keyboard)
 
 
 # ============================================================
-# FORCE SUB MESSAGE
+# SEND FORCE SUB MESSAGE
 # ============================================================
 
 async def send_force_sub(
     update: Update,
-):
+) -> None:
 
-    if not update.message:
-        return
+    # --------------------------------------------------------
+    # MESSAGE UPDATE
+    # --------------------------------------------------------
 
-    await update.message.reply_text(
-        "🔒 <b>Join Required</b>\n\n"
-        "You must join our channel before "
-        "using Mohammed Poster Zone.\n\n"
-        "📢 <b>Required Channel:</b>\n"
-        f"{FSUB_CHANNEL}\n\n"
-        "1️⃣ Tap <b>Join Channel</b>\n"
-        "2️⃣ Join the channel\n"
-        "3️⃣ Come back here\n"
-        "4️⃣ Tap <b>Try Again</b>",
-        parse_mode=ParseMode.HTML,
-        reply_markup=force_sub_keyboard(),
-        disable_web_page_preview=True,
-    )
+    if update.message:
+
+        await update.message.reply_text(
+            "🔒 <b>Join Required</b>\n\n"
+            "You must join our channel before "
+            "using <b>Mohammed Poster Zone</b>.\n\n"
+            f"📢 <b>Required Channel:</b>\n"
+            f"{FSUB_CHANNEL}\n\n"
+            "1️⃣ Tap <b>Join Channel</b>\n"
+            "2️⃣ Join the channel\n"
+            "3️⃣ Come back here\n"
+            "4️⃣ Tap <b>Try Again</b>",
+            parse_mode=ParseMode.HTML,
+            reply_markup=force_sub_keyboard(),
+            disable_web_page_preview=True,
+        )
 
 
 # ============================================================
@@ -156,30 +238,52 @@ async def force_sub(
     context: ContextTypes.DEFAULT_TYPE,
 ) -> bool:
 
-    # Only groups
+    # --------------------------------------------------------
+    # ONLY WORK IN GROUPS / SUPERGROUPS
+    # --------------------------------------------------------
+
     if not is_group(update):
-        return False
+        return True
 
-    if not update.effective_user:
-        return False
+    # --------------------------------------------------------
+    # CHECK USER
+    # --------------------------------------------------------
 
-    user_id = update.effective_user.id
+    user = update.effective_user
 
-    # Owner bypass
+    if not user:
+        return True
+
+    user_id = user.id
+
+    # --------------------------------------------------------
+    # OWNER BYPASS
+    # --------------------------------------------------------
+
     if int(user_id) == int(OWNER_ID):
         return True
 
+    # --------------------------------------------------------
+    # CHECK MEMBERSHIP
+    # --------------------------------------------------------
+
     joined = await check_membership(
-        context,
-        user_id,
+        context=context,
+        user_id=user_id,
     )
+
+    # --------------------------------------------------------
+    # USER JOINED
+    # --------------------------------------------------------
 
     if joined:
         return True
 
-    await send_force_sub(
-        update,
-    )
+    # --------------------------------------------------------
+    # USER NOT JOINED
+    # --------------------------------------------------------
+
+    await send_force_sub(update)
 
     return False
 
@@ -191,12 +295,25 @@ async def force_sub(
 async def force_sub_callback(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
-):
+) -> None:
 
     query = update.callback_query
 
     if not query:
         return
+
+    # --------------------------------------------------------
+    # ANSWER CALLBACK IMMEDIATELY
+    # --------------------------------------------------------
+
+    try:
+        await query.answer()
+    except Exception:
+        pass
+
+    # --------------------------------------------------------
+    # GET USER
+    # --------------------------------------------------------
 
     user = query.from_user
 
@@ -205,19 +322,19 @@ async def force_sub_callback(
 
     user_id = user.id
 
-    # Only the person who pressed
-    # the button gets checked.
-    joined = await check_membership(
-        context,
-        user_id,
-    )
+    # --------------------------------------------------------
+    # OWNER BYPASS
+    # --------------------------------------------------------
 
-    if joined:
+    if int(user_id) == int(OWNER_ID):
 
-        await query.answer(
-            "✅ Subscription verified!",
-            show_alert=True,
-        )
+        try:
+            await query.answer(
+                "✅ Subscription verified!",
+                show_alert=True,
+            )
+        except Exception:
+            pass
 
         try:
             await query.message.delete()
@@ -226,7 +343,67 @@ async def force_sub_callback(
 
         return
 
-    await query.answer(
-        "❌ You have not joined the channel yet.",
-        show_alert=True,
+    # --------------------------------------------------------
+    # CHECK MEMBERSHIP
+    # --------------------------------------------------------
+
+    joined = await check_membership(
+        context=context,
+        user_id=user_id,
+    )
+
+    # --------------------------------------------------------
+    # JOINED
+    # --------------------------------------------------------
+
+    if joined:
+
+        try:
+            await query.answer(
+                "✅ Subscription verified!",
+                show_alert=True,
+            )
+        except Exception:
+            pass
+
+        # Delete force-sub message
+        try:
+            await query.message.delete()
+        except Exception:
+            pass
+
+        return
+
+    # --------------------------------------------------------
+    # NOT JOINED
+    # --------------------------------------------------------
+
+    try:
+        await query.answer(
+            "❌ You have not joined the channel yet.",
+            show_alert=True,
+        )
+    except Exception:
+        pass
+
+
+# ============================================================
+# OPTIONAL: TEST FORCE SUB
+# ============================================================
+
+async def test_membership(
+    context: ContextTypes.DEFAULT_TYPE,
+    user_id: int,
+) -> bool:
+
+    """
+    Optional helper.
+
+    Can be used from another part of your bot
+    if you want to test a user's subscription.
+    """
+
+    return await check_membership(
+        context=context,
+        user_id=user_id,
     )
