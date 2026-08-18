@@ -74,6 +74,7 @@ from poster import (
     extract_title_from_url,
     build_navigation_items,
     build_caption,
+    create_thumbnail,
 )
 
 # ------------------------- #
@@ -716,8 +717,24 @@ async def send_poster_result(
 
     first = items[0]
 
+    thumbnail = await asyncio.to_thread(
+        create_thumbnail,
+        first["url"],
+        media.get("title")
+        or media.get("name")
+        or media.get("original_title")
+        or media.get("original_name")
+        or "Unknown",
+    )
+
+    if not thumbnail:
+        await update.message.reply_text(
+            "❌ Failed to create thumbnail."
+        )
+        return
+
     sent = await update.message.reply_photo(
-        photo=first["url"],
+        photo=thumbnail,
         caption=build_caption(
             media,
             platform,
