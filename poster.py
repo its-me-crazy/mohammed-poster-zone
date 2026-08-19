@@ -57,9 +57,10 @@ session.headers.update({
     )
 })
 
-# ------------------------- #
-# TMDB request
-# ------------------------- #
+
+# =========================================================
+# TMDB REQUEST
+# =========================================================
 
 def tmdb_get(
     endpoint: str,
@@ -74,7 +75,9 @@ def tmdb_get(
         )
 
     params["api_key"] = TMDB_API_KEY
-    params["language"] = TMDB_LANGUAGE
+
+    if TMDB_LANGUAGE:
+        params["language"] = TMDB_LANGUAGE
 
     response = session.get(
         TMDB_BASE + endpoint,
@@ -92,18 +95,19 @@ def tmdb_get(
         )
 
         raise RuntimeError(
-            f"TMDB API returned "
-            f"HTTP {response.status_code}"
+            f"TMDB API returned HTTP "
+            f"{response.status_code}"
         )
 
     return response.json()
 
-# ------------------------- #
-# Clean title
-# ------------------------- #
+
+# =========================================================
+# CLEAN TITLE
+# =========================================================
 
 def clean_title(
-    title: str
+    title: str,
 ) -> str:
 
     if not title:
@@ -122,6 +126,15 @@ def clean_title(
 
         r"\s*\|\s*Prime Video$",
         r"\s*-\s*Prime Video$",
+
+        r"\s*\|\s*Amazon Prime Video$",
+        r"\s*-\s*Amazon Prime Video$",
+
+        r"\s*\|\s*JioHotstar$",
+        r"\s*-\s*JioHotstar$",
+
+        r"\s*\|\s*Hotstar$",
+        r"\s*-\s*Hotstar$",
 
         r"\s*\|\s*Disney\+ Hotstar$",
         r"\s*-\s*Disney\+ Hotstar$",
@@ -143,6 +156,24 @@ def clean_title(
 
         r"\s*\|\s*YouTube$",
         r"\s*-\s*YouTube$",
+
+        r"\s*\|\s*MX Player$",
+        r"\s*-\s*MX Player$",
+
+        r"\s*\|\s*Discovery\+$",
+        r"\s*-\s*Discovery\+$",
+
+        r"\s*\|\s*Chorki$",
+        r"\s*-\s*Chorki$",
+
+        r"\s*\|\s*District$",
+        r"\s*-\s*District$",
+
+        r"\s*\|\s*JustWatch$",
+        r"\s*-\s*JustWatch$",
+
+        r"\s*\|\s*Ultra Play$",
+        r"\s*-\s*Ultra Play$",
     ]
 
     for pattern in suffixes:
@@ -156,9 +187,10 @@ def clean_title(
 
     return title.strip()
 
-# ------------------------- #
-# Extract title from OTT URL
-# ------------------------- #
+
+# =========================================================
+# EXTRACT TITLE FROM OTT URL
+# =========================================================
 
 def extract_title_from_url(
     url: str,
@@ -187,7 +219,7 @@ def extract_title_from_url(
             "html.parser",
         )
 
-        # OpenGraph title
+        # OpenGraph
         meta = soup.find(
             "meta",
             property="og:title",
@@ -205,7 +237,7 @@ def extract_title_from_url(
                     content
                 )
 
-        # Twitter title
+        # Twitter
         meta = soup.find(
             "meta",
             attrs={
@@ -249,9 +281,10 @@ def extract_title_from_url(
 
     return None
 
-# ------------------------- #
-# Search movie
-# ------------------------- #
+
+# =========================================================
+# SEARCH MOVIE
+# =========================================================
 
 def search_movie(
     title: str,
@@ -268,9 +301,10 @@ def search_movie(
         [],
     )
 
-# ------------------------- #
-# Search TV
-# ------------------------- #
+
+# =========================================================
+# SEARCH TV
+# =========================================================
 
 def search_tv(
     title: str,
@@ -287,14 +321,17 @@ def search_tv(
         [],
     )
 
-# ------------------------- #
-# Watch Providers
-# ------------------------- #
 
-def get_watch_providers(
+# =========================================================
+# WATCH PROVIDERS
+# =========================================================
+
+def get_watch_provider_data(
     media,
 ):
+
     try:
+
         media_type = media.get(
             "media_type"
         )
@@ -304,7 +341,11 @@ def get_watch_providers(
         )
 
         if not media_type or not media_id:
-            return []
+            return {
+                "providers": [],
+                "provider_links": [],
+                "watch_link": None,
+            }
 
         data = tmdb_get(
             f"/{media_type}/{media_id}/watch/providers"
@@ -312,35 +353,85 @@ def get_watch_providers(
 
         results = data.get(
             "results",
-            {}
+            {},
         )
 
-        # Prefer India
+        # India first
         region = (
             results.get("IN")
             or results.get("US")
         )
 
         if not region:
-            return []
+
+            return {
+                "providers": [],
+                "provider_links": [],
+                "watch_link": None,
+            }
 
         providers = []
 
-        # Streaming services
-        for provider in (
+        provider_links = []
+
+        # TMDB's watch page
+        watch_link = region.get(
+            "link"
+        )
+
+        provider_groups = (
             region.get("flatrate", [])
             + region.get("free", [])
             + region.get("ads", [])
-        ):
+            + region.get("rent", [])
+            + region.get("buy", [])
+        )
+
+        seen = set()
+
+        for provider in provider_groups:
 
             name = provider.get(
                 "provider_name"
             )
 
-            if name and name not in providers:
-                providers.append(name)
+            if not name:
+                continue
 
-        return providers
+            normalized = name.lower().strip()
+
+            if normalized in seen:
+                continue
+
+            seen.add(normalized)
+
+            providers.append(name)
+
+            logo_path = provider.get(
+                "logo_path"
+            )
+
+            logo_url = None
+
+            if logo_path:
+                logo_url = image_url(
+                    logo_path
+                )
+
+            provider_links.append({
+                "name": name,
+                "logo_url": logo_url,
+                "url": watch_link,
+                "provider_id": provider.get(
+                    "provider_id"
+                ),
+            })
+
+        return {
+            "providers": providers,
+            "provider_links": provider_links,
+            "watch_link": watch_link,
+        }
 
     except Exception:
 
@@ -348,11 +439,30 @@ def get_watch_providers(
             "Failed to get watch providers"
         )
 
-        return []
+        return {
+            "providers": [],
+            "provider_links": [],
+            "watch_link": None,
+        }
 
-# ------------------------- #
-# Candidate
-# ------------------------- #
+
+def get_watch_providers(
+    media,
+):
+
+    data = get_watch_provider_data(
+        media
+    )
+
+    return data.get(
+        "providers",
+        []
+    )
+
+
+# =========================================================
+# CANDIDATE
+# =========================================================
 
 def make_candidate(
     item: dict,
@@ -403,7 +513,11 @@ def make_candidate(
 
         "title": name,
 
+        "name": name,
+
         "original_title": original,
+
+        "original_name": original,
 
         "year": (
             date[:4]
@@ -419,11 +533,16 @@ def make_candidate(
             "overview",
             "",
         ),
+
+        "providers": [],
+        "provider_links": [],
+        "watch_link": None,
     }
 
-# ------------------------- #
-# Search media
-# ------------------------- #
+
+# =========================================================
+# SEARCH MEDIA
+# =========================================================
 
 def search_media(
     title: str,
@@ -481,16 +600,18 @@ def search_media(
 
     selected = None
 
-    # Exact match first
+    # Exact match
     for candidate in candidates:
 
         candidate_title = (
-            candidate["title"]
+            candidate.get("title")
             or ""
         ).lower().strip()
 
         original_title = (
-            candidate["original_title"]
+            candidate.get(
+                "original_title"
+            )
             or ""
         ).lower().strip()
 
@@ -502,24 +623,47 @@ def search_media(
             selected = candidate
             break
 
+    # First best result
     if selected is None:
+
         selected = candidates[0]
 
-    # ------------------------- #
-    # Get streaming providers
-    # ------------------------- #
+    # --------------------------------------------------
+    # GET WATCH PROVIDERS
+    # --------------------------------------------------
 
-    providers = get_watch_providers(
-        selected
+    provider_data = (
+        get_watch_provider_data(
+            selected
+        )
     )
 
-    selected["providers"] = providers
+    selected["providers"] = (
+        provider_data.get(
+            "providers",
+            []
+        )
+    )
+
+    selected["provider_links"] = (
+        provider_data.get(
+            "provider_links",
+            []
+        )
+    )
+
+    selected["watch_link"] = (
+        provider_data.get(
+            "watch_link"
+        )
+    )
 
     return selected
 
-# ------------------------- #
-# Image URL
-# ------------------------- #
+
+# =========================================================
+# IMAGE URL
+# =========================================================
 
 def image_url(
     path: Optional[str],
@@ -528,11 +672,20 @@ def image_url(
     if not path:
         return None
 
+    if path.startswith(
+        "http://"
+    ) or path.startswith(
+        "https://"
+    ):
+
+        return path
+
     return IMAGE_BASE + path
 
-# ------------------------- #
-# Get media images
-# ------------------------- #
+
+# =========================================================
+# GET MEDIA IMAGES
+# =========================================================
 
 def get_media_images(
     media: dict,
@@ -554,23 +707,14 @@ def get_media_images(
 
     artwork = []
 
-    posters = data.get(
+    # --------------------------------------------------
+    # Portrait
+    # --------------------------------------------------
+
+    for item in data.get(
         "posters",
         [],
-    )
-
-    backdrops = data.get(
-        "backdrops",
-        [],
-    )
-
-    logos = data.get(
-        "logos",
-        [],
-    )
-
-    # Portrait
-    for item in posters:
+    ):
 
         url = image_url(
             item.get(
@@ -593,8 +737,14 @@ def get_media_images(
                 ),
             })
 
+    # --------------------------------------------------
     # Cover
-    for item in backdrops:
+    # --------------------------------------------------
+
+    for item in data.get(
+        "backdrops",
+        [],
+    ):
 
         url = image_url(
             item.get(
@@ -617,8 +767,14 @@ def get_media_images(
                 ),
             })
 
+    # --------------------------------------------------
     # Logo
-    for item in logos:
+    # --------------------------------------------------
+
+    for item in data.get(
+        "logos",
+        [],
+    ):
 
         url = image_url(
             item.get(
@@ -643,9 +799,10 @@ def get_media_images(
 
     return artwork
 
-# ------------------------- #
-# Sort artwork
-# ------------------------- #
+
+# =========================================================
+# SORT ARTWORK
+# =========================================================
 
 def sort_artwork(
     items,
@@ -660,9 +817,10 @@ def sort_artwork(
         reverse=True,
     )
 
-# ------------------------- #
-# Best artwork
-# ------------------------- #
+
+# =========================================================
+# BEST ARTWORK
+# =========================================================
 
 def get_best_artwork(
     media,
@@ -680,12 +838,19 @@ def get_best_artwork(
 
     for item in all_artwork:
 
-        grouped[
-            item["type"]
-        ].append(item)
+        item_type = item.get(
+            "type"
+        )
+
+        if item_type in grouped:
+
+            grouped[
+                item_type
+            ].append(item)
 
     result = []
 
+    # EXACT ORDER
     for category in (
         "Portrait",
         "Cover",
@@ -704,24 +869,29 @@ def get_best_artwork(
 
     return result
 
-# ------------------------- #
-# TV details
-# ------------------------- #
+
+# =========================================================
+# TV DETAILS
+# =========================================================
 
 def get_tv_details(
     media,
 ):
 
-    if media["media_type"] != "tv":
+    if media.get(
+        "media_type"
+    ) != "tv":
+
         return None
 
     return tmdb_get(
         f"/tv/{media['id']}"
     )
 
-# ------------------------- #
-# Seasons
-# ------------------------- #
+
+# =========================================================
+# SEASONS
+# =========================================================
 
 def get_seasons(
     media,
@@ -771,9 +941,10 @@ def get_seasons(
 
     return seasons
 
-# ------------------------- #
-# Season poster
-# ------------------------- #
+
+# =========================================================
+# SEASON POSTER
+# =========================================================
 
 def get_season_poster(
     series_id: int,
@@ -816,17 +987,16 @@ def get_season_poster(
                 path
             )
 
-    path = data.get(
-        "poster_path"
-    )
-
     return image_url(
-        path
+        data.get(
+            "poster_path"
+        )
     )
 
-# ------------------------- #
-# Navigation items
-# ------------------------- #
+
+# =========================================================
+# NAVIGATION ITEMS
+# =========================================================
 
 def build_navigation_items(
     media,
@@ -834,51 +1004,51 @@ def build_navigation_items(
 
     items = []
 
+    # --------------------------------------------------
+    # TMDB Portrait + Cover ONLY
+    # --------------------------------------------------
+
     artwork = get_best_artwork(
         media
     )
 
     for item in artwork:
 
-        items.append({
-            "type": item["type"],
-            "url": item["url"],
-            "season": None,
-        })
-
-    if media["media_type"] == "tv":
-
-        seasons = get_seasons(
-            media
+        item_type = item.get(
+            "type"
         )
 
-        for season in seasons:
+        # Only Portrait and Cover
+        if item_type not in (
+            "Portrait",
+            "Cover",
+        ):
 
-            poster = get_season_poster(
-                media["id"],
-                season["number"],
-            )
+            continue
 
-            if not poster:
-                continue
+        items.append({
+            "type": item_type,
+            "url": item["url"],
+            "season": None,
+            "source": "tmdb",
+        })
 
-            items.append({
-                "type": (
-                    f"Season "
-                    f"{season['number']} "
-                    f"Portrait"
-                ),
-
-                "url": poster,
-
-                "season": season,
-            })
+    # --------------------------------------------------
+    # Provider logos are NOT used as thumbnails.
+    #
+    # This keeps Next/Back as:
+    #
+    # Portrait -> Cover
+    #
+    # The title is rendered onto both thumbnails.
+    # --------------------------------------------------
 
     return items
 
-# ------------------------- #
-# Media title
-# ------------------------- #
+
+# =========================================================
+# MEDIA TITLE
+# =========================================================
 
 def media_title(
     media,
@@ -899,27 +1069,35 @@ def media_title(
     )
 
     result = html.escape(
-        title
+        str(title)
     )
 
     if year:
 
         result += (
-            f" - ({html.escape(year)})"
+            f" - ({html.escape(str(year))})"
         )
 
     if season:
 
-        result += (
-            f" "
-            f"{html.escape(season['name'])}"
+        season_name = season.get(
+            "name",
+            "",
         )
+
+        if season_name:
+
+            result += (
+                f" "
+                f"{html.escape(str(season_name))}"
+            )
 
     return result
 
-# ==================================================
-# CREATE RELEASE-STYLE THUMBNAIL
-# ==================================================
+
+# =========================================================
+# CREATE RELEASE STYLE THUMBNAIL
+# =========================================================
 
 def create_thumbnail(
     image_url_value: str,
@@ -940,10 +1118,6 @@ def create_thumbnail(
                 response.content
             )
         ).convert("RGB")
-
-        # ------------------------------------------
-        # 16:9 output
-        # ------------------------------------------
 
         target_width = 1280
         target_height = 720
@@ -984,9 +1158,9 @@ def create_thumbnail(
             Image.Resampling.LANCZOS,
         )
 
-        # ------------------------------------------
-        # Center crop
-        # ------------------------------------------
+        # --------------------------------------------------
+        # CENTER CROP
+        # --------------------------------------------------
 
         left = (
             new_width
@@ -1007,9 +1181,9 @@ def create_thumbnail(
             )
         )
 
-        # ------------------------------------------
-        # Dark bottom gradient
-        # ------------------------------------------
+        # --------------------------------------------------
+        # DARK GRADIENT
+        # --------------------------------------------------
 
         overlay = Image.new(
             "RGBA",
@@ -1026,7 +1200,7 @@ def create_thumbnail(
             overlay
         )
 
-        gradient_height = 280
+        gradient_height = 300
 
         for y in range(
             target_height
@@ -1035,7 +1209,7 @@ def create_thumbnail(
         ):
 
             alpha = int(
-                210
+                220
                 * (
                     y
                     - (
@@ -1066,9 +1240,9 @@ def create_thumbnail(
             overlay,
         )
 
-        # ------------------------------------------
-        # Title
-        # ------------------------------------------
+        # --------------------------------------------------
+        # FONT
+        # --------------------------------------------------
 
         draw = ImageDraw.Draw(
             source
@@ -1076,7 +1250,8 @@ def create_thumbnail(
 
         font_paths = [
 
-            "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+            "/usr/share/fonts/truetype/dejavu/"
+            "DejaVuSans-Bold.ttf",
 
             "/usr/share/fonts/truetype/liberation2/"
             "LiberationSans-Bold.ttf",
@@ -1102,14 +1277,14 @@ def create_thumbnail(
 
             font = ImageFont.load_default()
 
-        # ------------------------------------------
-        # Clean title
-        # ------------------------------------------
+        # --------------------------------------------------
+        # TITLE
+        # --------------------------------------------------
 
         clean = re.sub(
             r"\s+",
             " ",
-            title,
+            str(title),
         ).strip()
 
         max_width = 1100
@@ -1159,13 +1334,16 @@ def create_thumbnail(
                 current
             )
 
-        # ------------------------------------------
+        # --------------------------------------------------
         # Maximum 2 lines
-        # ------------------------------------------
+        # --------------------------------------------------
 
         if len(lines) > 2:
 
-            middle = len(words) // 2
+            middle = max(
+                1,
+                len(words) // 2,
+            )
 
             lines = [
                 " ".join(
@@ -1176,9 +1354,9 @@ def create_thumbnail(
                 ),
             ]
 
-        # ------------------------------------------
-        # Draw title
-        # ------------------------------------------
+        # --------------------------------------------------
+        # DRAW TITLE
+        # --------------------------------------------------
 
         line_height = 70
 
@@ -1227,7 +1405,7 @@ def create_thumbnail(
                 ),
             )
 
-            # Main title
+            # Main
             draw.text(
                 (
                     x,
@@ -1240,9 +1418,9 @@ def create_thumbnail(
 
             start_y += line_height
 
-        # ------------------------------------------
-        # Compress JPEG
-        # ------------------------------------------
+        # --------------------------------------------------
+        # JPEG
+        # --------------------------------------------------
 
         output = io.BytesIO()
 
@@ -1272,9 +1450,10 @@ def create_thumbnail(
 
         return None
 
-# ==================================================
+
+# =========================================================
 # CAPTION
-# ==================================================
+# =========================================================
 
 def build_caption(
     media,
@@ -1282,70 +1461,130 @@ def build_caption(
     artwork,
 ):
 
-    # ------------------------------------------
+    # --------------------------------------------------
     # Current artwork
-    # ------------------------------------------
+    # --------------------------------------------------
 
     current_type = artwork.get(
         "type",
         "Poster",
     )
 
-    # ------------------------------------------
-    # Streaming platforms
-    # ------------------------------------------
+    current_url = artwork.get(
+        "url"
+    )
+
+    # --------------------------------------------------
+    # Providers
+    # --------------------------------------------------
+
+    provider_links = media.get(
+        "provider_links",
+        []
+    )
 
     providers = media.get(
         "providers",
         []
     )
 
-    if providers:
+    # --------------------------------------------------
+    # Fallback platform
+    # --------------------------------------------------
 
-        platform_name = " + ".join(
-            providers
+    if not provider_links and platform:
+
+        provider_links = [{
+            "name": str(platform),
+            "url": None,
+            "logo_url": None,
+        }]
+
+    # --------------------------------------------------
+    # Platform caption
+    # --------------------------------------------------
+
+    platform_lines = []
+
+    seen_platforms = set()
+
+    for provider in provider_links:
+
+        name = provider.get(
+            "name"
         )
 
-    else:
+        if not name:
+            continue
 
-        platform_name = (
-            platform
-            or "Poster"
+        normalized = (
+            name.lower().strip()
         )
 
-    platform_name = html.escape(
-        platform_name
+        if normalized in seen_platforms:
+            continue
+
+        seen_platforms.add(
+            normalized
+        )
+
+        provider_url = provider.get(
+            "url"
+        )
+
+        if provider_url:
+
+            safe_url = html.escape(
+                provider_url,
+                quote=True,
+            )
+
+            platform_lines.append(
+                f'<b>{html.escape(name)} '
+                f'Poster:</b> '
+                f'<a href="{safe_url}">'
+                f'Click Here'
+                f'</a>'
+            )
+
+        else:
+
+            platform_lines.append(
+                f"<b>{html.escape(name)} "
+                f"Poster:</b> "
+                f"Not Available"
+            )
+
+    # --------------------------------------------------
+    # TMDB poster
+    # --------------------------------------------------
+
+    poster_path = media.get(
+        "poster_path"
     )
 
-    # ------------------------------------------
-    # Current artwork URL
-    # ------------------------------------------
+    if poster_path:
 
-    current_url = artwork.get(
-        "url"
-    )
+        tmdb_poster = image_url(
+            poster_path
+        )
 
-    if current_url:
-
-        current_url = html.escape(
-            current_url,
+        safe_tmdb = html.escape(
+            tmdb_poster,
             quote=True,
         )
 
-        platform_line = (
-            f"<b>{platform_name} Poster:</b> "
-            f"{current_url}"
+        platform_lines.insert(
+            0,
+            f'<b>TMDB Poster:</b> '
+            f'<a href="{safe_tmdb}">'
+            f'Click Here'
+            f'</a>'
         )
 
-    else:
-
-        platform_line = (
-            f"<b>{platform_name} Poster:</b>"
-        )
-
-    # ------------------------------------------
-    # Get all artwork
-    # ------------------------------------------
+    # --------------------------------------------------
+    # Artwork
+    # --------------------------------------------------
 
     try:
 
@@ -1361,10 +1600,6 @@ def build_caption(
         )
 
         all_artwork = []
-
-    # ------------------------------------------
-    # Find best link for each category
-    # ------------------------------------------
 
     artwork_links = {
         "Portrait": None,
@@ -1385,36 +1620,32 @@ def build_caption(
         if (
             item_type in artwork_links
             and item_url
-            and not artwork_links[item_type]
+            and artwork_links[item_type] is None
         ):
 
             artwork_links[item_type] = (
                 item_url
             )
 
-    # ------------------------------------------
-    # Current artwork category
-    # ------------------------------------------
-
+    # Current artwork gets priority
     if (
         current_type in artwork_links
-        and artwork.get("url")
+        and current_url
     ):
 
         artwork_links[current_type] = (
-            artwork.get("url")
+            current_url
         )
 
-    # ------------------------------------------
-    # Build clickable links
-    # ------------------------------------------
+    # --------------------------------------------------
+    # Build artwork links
+    # --------------------------------------------------
 
-    lines = []
+    artwork_lines = []
 
     for category in (
         "Portrait",
         "Cover",
-        "Logo",
     ):
 
         url = artwork_links.get(
@@ -1428,7 +1659,7 @@ def build_caption(
                 quote=True,
             )
 
-            lines.append(
+            artwork_lines.append(
                 f'{category}: '
                 f'<a href="{safe_url}">'
                 f'Click Here'
@@ -1437,32 +1668,54 @@ def build_caption(
 
         else:
 
-            lines.append(
+            artwork_lines.append(
                 f"{category}: "
                 f"Not Available"
             )
 
-    # ------------------------------------------
+    # --------------------------------------------------
     # Title
-    # ------------------------------------------
+    # --------------------------------------------------
 
     title = media_title(
         media,
         artwork.get("season"),
     )
 
-    # ------------------------------------------
-    # Final caption
-    # ------------------------------------------
+    # --------------------------------------------------
+    # FINAL CAPTION
+    # --------------------------------------------------
 
-    return (
-        f"{platform_line}\n\n"
-        f"{lines[0]}\n\n"
-        f"{lines[1]}\n\n"
-        f"{lines[2]}\n\n"
-        f"<b>{title}</b>\n\n"
+    lines = []
+
+    if platform_lines:
+
+        lines.extend(
+            platform_lines
+        )
+
+    lines.append("")
+
+    lines.extend(
+        artwork_lines
+    )
+
+    lines.append("")
+
+    lines.append(
+        f"<b>{title}</b>"
+    )
+
+    lines.append("")
+
+    lines.append(
         "Powered by @Aero_Unity."
     )
+
+    return "\n\n".join(
+        lines
+    )
+
 
 # ------------------------- #
 # Don't Remove Credit
