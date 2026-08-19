@@ -1,16 +1,22 @@
-# ------------------------- #
+# ============================================================
 # Don't Remove Credit
 # Owner @Mr_Mohammed_29
-# ------------------------- #
+# ============================================================
+
+# ============================================================
+# platforms.py
+# Mohammed Poster Zone
+# ============================================================
 
 from urllib.parse import urlparse
 
-# ------------------------- #
-# Don't Remove Credit
-# Owner @Mr_Mohammed_29
-# ------------------------- #
+
+# ============================================================
+# SUPPORTED PLATFORMS
+# ============================================================
 
 SUPPORTED_PLATFORMS = {
+
     "AaoNXT": [
         "aaonxt.com",
     ],
@@ -188,40 +194,131 @@ SUPPORTED_PLATFORMS = {
     ],
 }
 
-# ------------------------- #
-# Don't Remove Credit
-# Owner @Mr_Mohammed_29
-# ------------------------- #
 
-def normalize_domain(domain: str) -> str:
-    domain = domain.lower().strip()
+# ============================================================
+# NORMALIZE DOMAIN
+# ============================================================
 
-    if domain.startswith("www."):
+def normalize_domain(
+    domain: str,
+) -> str:
+    """
+    Normalize a hostname.
+
+    Example:
+
+        WWW.Netflix.com
+        ->
+        netflix.com
+    """
+
+    if not domain:
+        return ""
+
+    domain = (
+        str(domain)
+        .lower()
+        .strip()
+        .rstrip(".")
+    )
+
+    if domain.startswith(
+        "www."
+    ):
         domain = domain[4:]
 
     return domain
 
-# ------------------------- #
-# Don't Remove Credit
-# Owner @Mr_Mohammed_29
-# ------------------------- #
 
-def detect_platform(url: str) -> str:
+# ============================================================
+# DETECT PLATFORM
+# ============================================================
+
+def detect_platform(
+    url: str,
+) -> str:
+    """
+    Detect the OTT/platform name from a URL.
+
+    Example:
+
+        https://www.netflix.com/title/123
+        -> Netflix
+
+        https://www.primevideo.com/detail/...
+        -> Prime Video
+    """
+
     try:
-        hostname = urlparse(url).hostname
+
+        if not url:
+            return "Unknown Platform"
+
+        url = str(
+            url
+        ).strip()
+
+        # ----------------------------------------------------
+        # Make sure URL has a scheme.
+        # ----------------------------------------------------
+
+        if not url.startswith(
+            (
+                "http://",
+                "https://",
+            )
+        ):
+            url = (
+                "https://"
+                + url
+            )
+
+        parsed = urlparse(
+            url
+        )
+
+        hostname = parsed.hostname
 
         if not hostname:
             return "Unknown Platform"
 
-        hostname = normalize_domain(hostname)
+        hostname = normalize_domain(
+            hostname
+        )
 
-        for platform, domains in SUPPORTED_PLATFORMS.items():
+        # ----------------------------------------------------
+        # Check every supported platform.
+        # ----------------------------------------------------
+
+        for (
+            platform,
+            domains,
+        ) in SUPPORTED_PLATFORMS.items():
+
             for domain in domains:
-                domain = normalize_domain(domain)
 
-                if (
-                    hostname == domain
-                    or hostname.endswith("." + domain)
+                domain = normalize_domain(
+                    domain
+                )
+
+                if not domain:
+                    continue
+
+                # Exact domain
+                if hostname == domain:
+                    return platform
+
+                # Subdomain
+                #
+                # Example:
+                # www.netflix.com
+                # -> netflix.com
+                #
+                # Example:
+                # help.netflix.com
+                # -> netflix.com
+                if hostname.endswith(
+                    "." + domain
                 ):
                     return platform
 
@@ -230,21 +327,97 @@ def detect_platform(url: str) -> str:
 
     return "Unknown Platform"
 
-# ------------------------- #
-# Don't Remove Credit
-# Owner @Mr_Mohammed_29
-# ------------------------- #
 
-def get_platforms_text() -> str:
-    return "\n".join(
-        f"{index:02d}. {name}"
-        for index, name in enumerate(
-            SUPPORTED_PLATFORMS.keys(),
-            start=1,
-        )
+# ============================================================
+# GET PLATFORM DOMAINS
+# ============================================================
+
+def get_platform_domains(
+    platform: str,
+):
+    """
+    Return domains belonging to a platform.
+    """
+
+    if not platform:
+        return []
+
+    for (
+        name,
+        domains,
+    ) in SUPPORTED_PLATFORMS.items():
+
+        if name.lower() == str(
+            platform
+        ).lower().strip():
+
+            return list(
+                domains
+            )
+
+    return []
+
+
+# ============================================================
+# IS SUPPORTED URL
+# ============================================================
+
+def is_supported_url(
+    url: str,
+) -> bool:
+    """
+    Return True when URL belongs
+    to a supported platform.
+    """
+
+    return (
+        detect_platform(url)
+        != "Unknown Platform"
     )
 
-# ------------------------- #
-# Don't Remove Credit
-# Owner @Mr_Mohammed_29
-# ------------------------- #
+
+# ============================================================
+# GET ALL PLATFORM NAMES
+# ============================================================
+
+def get_platform_names():
+    """
+    Return all supported platform names.
+    """
+
+    return list(
+        SUPPORTED_PLATFORMS.keys()
+    )
+
+
+# ============================================================
+# PLATFORMS TEXT
+# ============================================================
+
+def get_platforms_text() -> str:
+    """
+    Generate /platforms output.
+    """
+
+    lines = []
+
+    for (
+        index,
+        name,
+    ) in enumerate(
+        SUPPORTED_PLATFORMS.keys(),
+        start=1,
+    ):
+
+        lines.append(
+            f"{index:02d}. {name}"
+        )
+
+    return "\n".join(
+        lines
+    )
+
+
+# ============================================================
+# END OF platforms.py
+# ============================================================
