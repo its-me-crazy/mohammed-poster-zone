@@ -1292,16 +1292,29 @@ def build_caption(
     )
 
     # ------------------------------------------
-    # Platform
+    # Streaming platforms
     # ------------------------------------------
 
-    platform = (
-        platform
-        or "Poster"
+    providers = media.get(
+        "providers",
+        []
     )
 
-    platform = html.escape(
-        platform
+    if providers:
+
+        platform_name = " + ".join(
+            providers
+        )
+
+    else:
+
+        platform_name = (
+            platform
+            or "Poster"
+        )
+
+    platform_name = html.escape(
+        platform_name
     )
 
     # ------------------------------------------
@@ -1370,8 +1383,7 @@ def build_caption(
         )
 
         if (
-            item_type
-            in artwork_links
+            item_type in artwork_links
             and item_url
             and not artwork_links[item_type]
         ):
@@ -1381,14 +1393,12 @@ def build_caption(
             )
 
     # ------------------------------------------
-    # If current artwork belongs to a category,
-    # use it as the category link.
+    # Current artwork category
     # ------------------------------------------
 
     if (
-        current_type
-        in artwork_links
-        and current_url
+        current_type in artwork_links
+        and artwork.get("url")
     ):
 
         artwork_links[current_type] = (
