@@ -5,8 +5,22 @@
 
 import os
 
-BOT_TOKEN = os.getenv("BOT_TOKEN", "").strip()
-TMDB_API_KEY = os.getenv("TMDB_API_KEY", "").strip()
+
+# ------------------------- #
+# Bot
+# ------------------------- #
+
+BOT_TOKEN = os.getenv(
+    "BOT_TOKEN",
+    "",
+).strip()
+
+
+TMDB_API_KEY = os.getenv(
+    "TMDB_API_KEY",
+    "",
+).strip()
+
 
 # ------------------------- #
 # MongoDB
@@ -17,64 +31,81 @@ MONGO_URI = os.getenv(
     "",
 ).strip()
 
+
 MONGO_DB = os.getenv(
     "MONGO_DB",
     "mohammed_poster_zone",
 ).strip()
 
-# -- OWNER --#
+
+# ------------------------- #
+# Owner
+# ------------------------- #
 
 OWNER_ID = int(
     os.getenv(
         "OWNER_ID",
-        "7284759394"
+        "7284759394",
     ).strip()
 )
+
+
+# ------------------------- #
+# Updates
+# ------------------------- #
 
 UPDATES_URL = os.getenv(
     "UPDATES_URL",
     "https://t.me/Aero_Unity",
 ).strip()
 
-# ------------------------- #
-# Don't Remove Credit
-# Owner @Mr_Mohammed_29
-# ------------------------- #
-
-PORT = int(os.getenv("PORT", "10000"))
 
 # ------------------------- #
-# Don't Remove Credit
-# Owner @Mr_Mohammed_29
+# Render Port
+# ------------------------- #
+
+PORT = int(
+    os.getenv(
+        "PORT",
+        "10000",
+    )
+)
+
+
+# ------------------------- #
+# Bot Name
 # ------------------------- #
 
 BOT_NAME = os.getenv(
     "BOT_NAME",
-    "Mohammed Poster Zone"
-)
+    "Mohammed Poster Zone",
+).strip()
+
 
 # ------------------------- #
-# Don't Remove Credit
-# Owner @Mr_Mohammed_29
+# TMDB Language
 # ------------------------- #
 
 TMDB_LANGUAGE = os.getenv(
     "TMDB_LANGUAGE",
-    "en-US"
-)
+    "en-US",
+).strip()
+
 
 # ------------------------- #
-# Don't Remove Credit
-# Owner @Mr_Mohammed_29
+# Request Timeout
 # ------------------------- #
 
 REQUEST_TIMEOUT = int(
-    os.getenv("REQUEST_TIMEOUT", "20")
+    os.getenv(
+        "REQUEST_TIMEOUT",
+        "20",
+    )
 )
 
+
 # ------------------------- #
-# Don't Remove Credit
-# Owner @Mr_Mohammed_29
+# Validation
 # ------------------------- #
 
 if not BOT_TOKEN:
@@ -82,19 +113,14 @@ if not BOT_TOKEN:
         "BOT_TOKEN environment variable is missing."
     )
 
-# ------------------------- #
-# Don't Remove Credit
-# Owner @Mr_Mohammed_29
-# ------------------------- #
 
 if not TMDB_API_KEY:
     raise RuntimeError(
         "TMDB_API_KEY environment variable is missing."
     )
 
+
 # ------------------------- #
 # Don't Remove Credit
 # Owner @Mr_Mohammed_29
 # ------------------------- #
-
-
