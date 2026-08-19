@@ -970,7 +970,7 @@ async def poster_command(
         await send_poster_result(
             update,
             media,
-            "Unknown Platform",
+            None,
         )
 
     except Exception:
@@ -1295,8 +1295,27 @@ async def navigation_callback(
                 )
 
         # --------------------------------------------------
-        # Create thumbnail
+        # Create thumbnail with title
         # --------------------------------------------------
+
+        title = (
+            data["media"].get("title")
+            or data["media"].get("name")
+            or data["media"].get("original_title")
+            or data["media"].get("original_name")
+            or "Unknown"
+        )
+
+        season = item.get("season")
+
+        if season:
+            season_name = season.get(
+                "name",
+                "",
+            )
+
+            if season_name:
+                title = f"{title} {season_name}"
 
         thumbnail = await asyncio.to_thread(
             create_thumbnail,
@@ -1311,15 +1330,7 @@ async def navigation_callback(
             )
             return
 
-        # --------------------------------------------------
-        # Keyboard
-        # --------------------------------------------------
-
-        keyboard = make_navigation_buttons(
-            key,
-            index,
-            len(data["items"]),
-        )
+        thumbnail.seek(0)
 
         # --------------------------------------------------
         # Caption
@@ -1345,7 +1356,11 @@ async def navigation_callback(
 
             await query.message.edit_media(
                 media=media,
-                reply_markup=keyboard,
+                reply_markup=make_navigation_buttons(
+                    key,
+                    index,
+                    len(data["items"]),
+                ),
             )
 
         except Exception:
