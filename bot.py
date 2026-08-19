@@ -2,6 +2,8 @@
 # Don't Remove Credit
 # Owner @Mr_Mohammed_29
 # ============================================================
+# bot.py
+# ============================================================
 
 import asyncio
 import logging
@@ -41,7 +43,6 @@ from database import (
     save_chat,
     get_user_count,
     get_chat_count,
-    get_all_user_ids,
     authorize_user,
     unauthorize_user,
     authorize_chat,
@@ -49,6 +50,7 @@ from database import (
     ban_user,
     unban_user,
     is_banned,
+    get_all_user_ids,
 )
 
 from platforms import (
@@ -98,6 +100,7 @@ app = Flask(__name__)
 
 @app.route("/")
 def home():
+
     return {
         "status": "online",
         "bot": BOT_NAME,
@@ -107,6 +110,7 @@ def home():
 
 @app.route("/health")
 def health():
+
     return {
         "status": "healthy",
         "service": "Mohammed Poster Zone",
@@ -114,6 +118,7 @@ def health():
 
 
 def run_web_server():
+
     app.run(
         host="0.0.0.0",
         port=PORT,
@@ -126,7 +131,8 @@ def run_web_server():
 # HELPERS
 # ============================================================
 
-def is_group(update: Update):
+def is_group(update):
+
     if not update.effective_chat:
         return False
 
@@ -136,7 +142,7 @@ def is_group(update: Update):
     )
 
 
-def is_owner(update: Update):
+def is_owner(update):
 
     user = update.effective_user
 
@@ -147,7 +153,7 @@ def is_owner(update: Update):
 
 
 # ============================================================
-# NAVIGATION STORAGE
+# NAVIGATION
 # ============================================================
 
 NAVIGATION = {}
@@ -161,15 +167,23 @@ def cleanup_navigation():
 
     expired = []
 
-    for key, value in list(NAVIGATION.items()):
+    for key, value in list(
+        NAVIGATION.items()
+    ):
 
         if (
-            now - value.get("created_at", now)
+            now
+            - value.get(
+                "created_at",
+                now,
+            )
             > NAVIGATION_TTL
         ):
+
             expired.append(key)
 
     for key in expired:
+
         NAVIGATION.pop(
             key,
             None,
@@ -221,421 +235,14 @@ def make_navigation_buttons(
 
 
 # ============================================================
-# FORCE SUB CALLBACK
-# ============================================================
-
-async def handle_force_sub_callback(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
-):
-
-    pending = await force_sub_callback(
-        update,
-        context,
-    )
-
-    if not pending:
-        return
-
-    user = update.effective_user
-    chat = update.effective_chat
-
-    if not user or not chat:
-        return
-
-    command = pending.get(
-        "command",
-        "",
-    ).lower()
-
-    args = pending.get(
-        "args",
-        [],
-    )
-
-    logger.info(
-        "Executing pending command | "
-        "user=%s | command=%s | args=%s",
-        user.id,
-        command,
-        args,
-    )
-
-    # ========================================================
-    # PENDING POSTER
-    # ========================================================
-
-    if command == "poster":
-
-        if not args:
-
-            await context.bot.send_message(
-                chat_id=chat.id,
-                text=(
-                    "❌ <b>No poster title was saved.</b>"
-                ),
-                parse_mode=ParseMode.HTML,
-            )
-
-            return
-
-        title = " ".join(args).strip()
-
-        processing = await context.bot.send_message(
-            chat_id=chat.id,
-            text=(
-                "🔎 <b>Searching for artwork...</b>"
-            ),
-            parse_mode=ParseMode.HTML,
-        )
-
-        try:
-
-            media = await asyncio.to_thread(
-                search_media,
-                title,
-            )
-
-            if not media:
-
-                await processing.edit_text(
-                    "❌ <b>No matching movie, "
-                    "series, anime, serial or drama "
-                    "was found.</b>",
-                    parse_mode=ParseMode.HTML,
-                )
-
-                return
-
-            await processing.delete()
-
-            await send_poster_result(
-                update,
-                media,
-                None,
-            )
-
-        except Exception:
-
-            logger.exception(
-                "Pending poster execution failed"
-            )
-
-            try:
-
-                await processing.edit_text(
-                    "⚠️ <b>An error occurred "
-                    "while searching.</b>",
-                    parse_mode=ParseMode.HTML,
-                )
-
-            except Exception:
-                pass
-
-        return
-
-    # ========================================================
-    # PENDING OTT
-    # ========================================================
-
-    if command == "ott":
-
-        if not args:
-
-            await context.bot.send_message(
-                chat_id=chat.id,
-                text="❌ <b>No OTT URL was saved.</b>",
-                parse_mode=ParseMode.HTML,
-            )
-
-            return
-
-        url = args[0].strip()
-
-        if not (
-            url.startswith("http://")
-            or url.startswith("https://")
-        ):
-
-            await context.bot.send_message(
-                chat_id=chat.id,
-                text="❌ <b>Invalid OTT URL.</b>",
-                parse_mode=ParseMode.HTML,
-            )
-
-            return
-
-        platform = detect_platform(url)
-
-        processing = await context.bot.send_message(
-            chat_id=chat.id,
-            text=(
-                "🌐 <b>Reading the OTT page...</b>"
-            ),
-            parse_mode=ParseMode.HTML,
-        )
-
-        try:
-
-            title = await asyncio.to_thread(
-                extract_title_from_url,
-                url,
-            )
-
-            if not title:
-
-                await processing.edit_text(
-                    "❌ <b>I couldn't extract a title "
-                    "from this page.</b>",
-                    parse_mode=ParseMode.HTML,
-                )
-
-                return
-
-            media = await asyncio.to_thread(
-                search_media,
-                title,
-            )
-
-            if not media:
-
-                await processing.edit_text(
-                    "❌ <b>No matching artwork was found.</b>",
-                    parse_mode=ParseMode.HTML,
-                )
-
-                return
-
-            await processing.delete()
-
-            await send_poster_result(
-                update,
-                media,
-                platform,
-            )
-
-        except Exception:
-
-            logger.exception(
-                "Pending OTT execution failed"
-            )
-
-            try:
-
-                await processing.edit_text(
-                    "⚠️ <b>The OTT page could not "
-                    "be processed.</b>",
-                    parse_mode=ParseMode.HTML,
-                )
-
-            except Exception:
-                pass
-
-        return
-
-
-# ============================================================
-# START
-# ============================================================
-
-async def start_command(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
-):
-
-    user = update.effective_user
-    chat = update.effective_chat
-
-    if not user or not chat:
-        return
-
-    try:
-
-        await save_user(user)
-        await save_chat(chat)
-
-    except Exception:
-
-        logger.exception(
-            "Failed to save user/chat"
-        )
-
-    if chat.type == "private":
-
-        if await is_banned(user.id):
-
-            await update.message.reply_text(
-                "🚫 <b>You are banned from using this bot.</b>\n\n"
-                "Contact @Mr_Mohammed_29",
-                parse_mode=ParseMode.HTML,
-            )
-
-            return
-
-        keyboard = InlineKeyboardMarkup(
-            [
-                [
-                    InlineKeyboardButton(
-                        "• ᴘᴏsᴛᴇʀ ɢʀᴏᴜᴘ •",
-                        url=(
-                            "https://t.me/"
-                            "+hxfpcrzX0YFjNmRl"
-                        ),
-                    )
-                ],
-                [
-                    InlineKeyboardButton(
-                        "• ᴜᴘᴅᴀᴛᴇs •",
-                        url=UPDATES_URL,
-                    )
-                ],
-            ]
-        )
-
-        await update.message.reply_text(
-            "🎬 <b>Mohammed Poster Zone</b>\n\n"
-            "Welcome to Mohammed Poster Bot! 👋\n\n"
-            "Please use this bot in our poster group.",
-            reply_markup=keyboard,
-            parse_mode=ParseMode.HTML,
-        )
-
-        return
-
-    if chat.type in (
-        "group",
-        "supergroup",
-    ):
-
-        await update.message.reply_text(
-            "🎬 <b>Mohammed Poster Zone</b>\n\n"
-            "Your movie, series, drama, anime, "
-            "cartoon and serial poster finder.\n\n"
-            "🎞 <code>/poster Reacher</code>\n"
-            "🌐 <code>/ott URL</code>\n"
-            "📚 <code>/platforms</code>\n"
-            "❓ <code>/help</code>\n"
-            "ℹ️ <code>/about</code>\n\n"
-            "Use Back and Next to browse artwork.",
-            parse_mode=ParseMode.HTML,
-        )
-
-
-# ============================================================
-# HELP
-# ============================================================
-
-async def help_command(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
-):
-
-    if not is_group(update):
-        return
-
-    await update.message.reply_text(
-        "╭━━━「 🎬 ᴘᴏsᴛᴇʀ ʜᴇʟᴘ 」━━━╮\n"
-        "┃\n"
-        "┃ 🔎 <b>Search Poster</b>\n"
-        "┃ <code>/poster Movie Name</code>\n"
-        "┃\n"
-        "┃ 🌐 <b>Search From OTT URL</b>\n"
-        "┃ <code>/ott https://example.com</code>\n"
-        "┃\n"
-        "┃ 📺 <b>Supported Platforms</b>\n"
-        "┃ <code>/platforms</code>\n"
-        "┃\n"
-        "┃ 🖼 <b>Artwork Navigation</b>\n"
-        "┃ <b>⬅️ Back</b> — Previous artwork\n"
-        "┃ <b>Next ➡️</b> — Next artwork\n"
-        "┃\n"
-        "┃ ℹ️ <b>About Bot</b>\n"
-        "┃ <code>/about</code>\n"
-        "┃\n"
-        "╰━━━━━━━━━━━━━━━━━━━━╯\n\n"
-        "⚡ <i>Powered by @Aero_Unity</i>",
-        parse_mode=ParseMode.HTML,
-        disable_web_page_preview=True,
-    )
-
-
-# ============================================================
-# ABOUT
-# ============================================================
-
-async def about_command(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
-):
-
-    if not is_group(update):
-        return
-
-    await update.message.reply_text(
-        "⍟───[ MY ᴅᴇᴛᴀɪʟs ]───⍟\n\n"
-        "‣ ᴍʏ ɴᴀᴍᴇ : "
-        "[ᴍᴏʜᴀᴍᴍᴇᴅ ᴘᴏsᴛᴇʀ ᴢᴏɴᴇ]"
-        "(https://t.me/Mohammed_Poster_bot)\n"
-        "‣ ᴅᴇᴠᴇʟᴏᴘᴇʀ : "
-        "[ᴍᴏʜᴀᴍᴍᴇᴅ]"
-        "(https://t.me/Mr_Mohammed_29)\n"
-        "‣ ʟɪʙʀᴀʀʏ : "
-        "[ᴘʏᴛʜᴏɴ-ᴛᴇʟᴇɢʀᴀᴍ-ʙᴏᴛ]"
-        "(https://pypi.org/project/python-telegram-bot/)\n"
-        "‣ ʟᴀɴɢᴜᴀɢᴇ : "
-        "[ᴘʏᴛʜᴏɴ 3]"
-        "(https://www.python.org/downloads/)\n"
-        "‣ ᴅᴀᴛᴀ ʙᴀsᴇ : "
-        "[ᴍᴏɴɢᴏ ᴅʙ]"
-        "(https://www.mongodb.com/)\n"
-        "‣ ʙᴏᴛ sᴇʀᴠᴇʀ : "
-        "[ʀᴇɴᴅᴇʀ]"
-        "(https://render.com)\n"
-        "‣ ᴜᴘᴅᴀᴛᴇs : "
-        "[Aᴇʀᴏ Uɴɪᴛʏ]"
-        "(https://t.me/Aero_Unity)\n"
-        "‣ ʙᴜɪʟᴅ sᴛᴀᴛᴜs : "
-        "ᴠ3.0 [sᴛᴀʙʟᴇ]"
-        "(https://t.me/Aero_Unity)",
-        parse_mode=ParseMode.MARKDOWN,
-        disable_web_page_preview=True,
-    )
-
-
-# ============================================================
-# PLATFORMS
-# ============================================================
-
-async def platforms_command(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
-):
-
-    if not is_group(update):
-        return
-
-    await update.message.reply_text(
-        "🌐 <b>SUPPORTED PLATFORMS</b>\n\n"
-        + get_platforms_text(),
-        parse_mode=ParseMode.HTML,
-    )
-
-
-# ============================================================
 # SEND POSTER
 # ============================================================
 
 async def send_poster_result(
-    update: Update,
-    media: dict,
-    platform: str | None,
+    update,
+    media,
+    platform=None,
 ):
-
-    if not update.effective_chat:
-        return
-
-    if not update.effective_user:
-        return
 
     items = await asyncio.to_thread(
         build_navigation_items,
@@ -644,13 +251,11 @@ async def send_poster_result(
 
     if not items:
 
-        if update.message:
-
-            await update.message.reply_text(
-                "❌ <b>No artwork was found "
-                "for this title.</b>",
-                parse_mode=ParseMode.HTML,
-            )
+        await update.message.reply_text(
+            "❌ <b>No artwork was found "
+            "for this title.</b>",
+            parse_mode=ParseMode.HTML,
+        )
 
         return
 
@@ -674,38 +279,24 @@ async def send_poster_result(
 
     if not thumbnail:
 
-        if update.message:
-
-            await update.message.reply_text(
-                "❌ <b>Failed to create thumbnail.</b>",
-                parse_mode=ParseMode.HTML,
-            )
+        await update.message.reply_text(
+            "❌ <b>Failed to create thumbnail.</b>",
+            parse_mode=ParseMode.HTML,
+        )
 
         return
 
     thumbnail.seek(0)
 
-    caption = build_caption(
-        media,
-        platform,
-        first,
+    sent = await update.message.reply_photo(
+        photo=thumbnail,
+        caption=build_caption(
+            media,
+            platform,
+            first,
+        ),
+        parse_mode=ParseMode.HTML,
     )
-
-    if update.message:
-
-        sent = await update.message.reply_photo(
-            photo=thumbnail,
-            caption=caption,
-            parse_mode=ParseMode.HTML,
-        )
-
-    else:
-
-        sent = await update.effective_chat.send_photo(
-            photo=thumbnail,
-            caption=caption,
-            parse_mode=ParseMode.HTML,
-        )
 
     key = (
         update.effective_chat.id,
@@ -735,12 +326,205 @@ async def send_poster_result(
 
 
 # ============================================================
-# /poster
+# START
+# ============================================================
+
+async def start_command(
+    update,
+    context,
+):
+
+    user = update.effective_user
+    chat = update.effective_chat
+
+    if not user or not chat:
+        return
+
+    try:
+
+        await save_user(user)
+        await save_chat(chat)
+
+    except Exception:
+
+        logger.exception(
+            "Failed to save user/chat"
+        )
+
+    if chat.type == "private":
+
+        if await is_banned(
+            user.id
+        ):
+
+            await update.message.reply_text(
+                "🚫 <b>You are banned from "
+                "using this bot.</b>\n\n"
+                "Contact @Mr_Mohammed_29",
+                parse_mode=ParseMode.HTML,
+            )
+
+            return
+
+        keyboard = InlineKeyboardMarkup(
+            [
+                [
+                    InlineKeyboardButton(
+                        "• ᴘᴏsᴛᴇʀ ɢʀᴏᴜᴘ •",
+                        url=(
+                            "https://t.me/"
+                            "+hxfpcrzX0YFjNmRl"
+                        ),
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        "• ᴜᴘᴅᴀᴛᴇs •",
+                        url=UPDATES_URL,
+                    )
+                ],
+            ]
+        )
+
+        await update.message.reply_text(
+            "🎬 <b>Mohammed Poster Zone</b>\n\n"
+            "Welcome to Mohammed Poster bot! 👋\n\n"
+            "Please use this bot in our poster group.",
+            reply_markup=keyboard,
+            parse_mode=ParseMode.HTML,
+        )
+
+        return
+
+    if chat.type in (
+        "group",
+        "supergroup",
+    ):
+
+        await update.message.reply_text(
+            "🎬 <b>Mohammed Poster Zone</b>\n\n"
+            "Your movies, series, drama, anime, "
+            "cartoon and serial poster finder.\n\n"
+            "🎞 <code>/poster Reacher</code>\n"
+            "🌐 <code>/ott URL</code>\n"
+            "📚 <code>/platforms</code>\n"
+            "❓ <code>/help</code>\n"
+            "ℹ️ <code>/about</code>\n\n"
+            "Use Back and Next to browse "
+            "available artwork.",
+            parse_mode=ParseMode.HTML,
+        )
+
+
+# ============================================================
+# HELP
+# ============================================================
+
+async def help_command(
+    update,
+    context,
+):
+
+    if not is_group(update):
+        return
+
+    await update.message.reply_text(
+        "╭━━━「 🎬 ᴘᴏsᴛᴇʀ ʜᴇʟᴘ 」━━━╮\n"
+        "┃\n"
+        "┃ 🔎 <b>Search Poster</b>\n"
+        "┃ <code>/poster Movie Name</code>\n"
+        "┃\n"
+        "┃ 🌐 <b>Search From OTT URL</b>\n"
+        "┃ <code>/ott https://example.com</code>\n"
+        "┃\n"
+        "┃ 📺 <b>Supported Platforms</b>\n"
+        "┃ <code>/platforms</code>\n"
+        "┃\n"
+        "┃ 🖼 <b>Artwork</b>\n"
+        "┃ Poster / Cover / Portrait\n"
+        "┃\n"
+        "┃ ⬅️ <b>Back</b> / <b>Next</b> ➡️\n"
+        "┃ Browse available artwork\n"
+        "┃\n"
+        "┃ ℹ️ <b>About Bot</b>\n"
+        "┃ <code>/about</code>\n"
+        "┃\n"
+        "╰━━━━━━━━━━━━━━━━━━━━╯\n\n"
+        "⚡ <i>Powered by @Aero_Unity</i>",
+        parse_mode=ParseMode.HTML,
+        disable_web_page_preview=True,
+    )
+
+
+# ============================================================
+# ABOUT
+# ============================================================
+
+async def about_command(
+    update,
+    context,
+):
+
+    if not is_group(update):
+        return
+
+    await update.message.reply_text(
+        "⍟───[ MY ᴅᴇᴛᴀɪʟꜱ ]───⍟\n\n"
+        "‣ ᴍʏ ɴᴀᴍᴇ : "
+        "[Mohammed Poster Zone]"
+        "(https://t.me/Mohammed_Poster_bot)\n"
+        "‣ ᴅᴇᴠᴇʟᴏᴘᴇʀ : "
+        "[Mohammed]"
+        "(https://t.me/Mr_Mohammed_29)\n"
+        "‣ ʟɪʙʀᴀʀʏ : "
+        "[python-telegram-bot]"
+        "(https://pypi.org/project/python-telegram-bot/)\n"
+        "‣ ʟᴀɴɢᴜᴀɢᴇ : "
+        "[Python 3]"
+        "(https://www.python.org/downloads/)\n"
+        "‣ ᴅᴀᴛᴀʙᴀsᴇ : "
+        "[MongoDB]"
+        "(https://www.mongodb.com/)\n"
+        "‣ ʙᴏᴛ sᴇʀᴠᴇʀ : "
+        "[Render]"
+        "(https://render.com)\n"
+        "‣ ᴜᴘᴅᴀᴛᴇs : "
+        "[Aero Unity]"
+        "(https://t.me/Aero_Unity)\n"
+        "‣ ʙᴜɪʟᴅ sᴛᴀᴛᴜs : "
+        "v3.0 [stable]"
+        "(https://t.me/Aero_Unity)",
+        parse_mode=ParseMode.MARKDOWN,
+        disable_web_page_preview=True,
+    )
+
+
+# ============================================================
+# PLATFORMS
+# ============================================================
+
+async def platforms_command(
+    update,
+    context,
+):
+
+    if not is_group(update):
+        return
+
+    await update.message.reply_text(
+        "🌐 <b>Supported Platforms</b>\n\n"
+        + get_platforms_text(),
+        parse_mode=ParseMode.HTML,
+    )
+
+
+# ============================================================
+# POSTER
 # ============================================================
 
 async def poster_command(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
+    update,
+    context,
 ):
 
     if not is_group(update):
@@ -755,7 +539,7 @@ async def poster_command(
     if not context.args:
 
         await update.message.reply_text(
-            "❌ <b>Enter a title.</b>\n\n"
+            "🔎 <b>Enter a title.</b>\n\n"
             "Example:\n"
             "<code>/poster Iron Man</code>",
             parse_mode=ParseMode.HTML,
@@ -767,9 +551,10 @@ async def poster_command(
         context.args
     ).strip()
 
-    processing = await update.message.reply_text(
-        "🔎 <b>Searching for artwork...</b>",
-        parse_mode=ParseMode.HTML,
+    processing = (
+        await update.message.reply_text(
+            "🔎 Searching for artwork..."
+        )
     )
 
     try:
@@ -782,10 +567,8 @@ async def poster_command(
         if not media:
 
             await processing.edit_text(
-                "❌ <b>No matching movie, "
-                "series, anime, serial or drama "
-                "was found.</b>",
-                parse_mode=ParseMode.HTML,
+                "❌ No matching movie, series, "
+                "anime, serial or drama was found."
             )
 
             return
@@ -807,10 +590,8 @@ async def poster_command(
         try:
 
             await processing.edit_text(
-                "⚠️ <b>An error occurred "
-                "while searching. "
-                "Please try again.</b>",
-                parse_mode=ParseMode.HTML,
+                "⚠️ An error occurred while "
+                "searching. Please try again."
             )
 
         except Exception:
@@ -818,12 +599,12 @@ async def poster_command(
 
 
 # ============================================================
-# /ott
+# OTT
 # ============================================================
 
 async def ott_command(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
+    update,
+    context,
 ):
 
     if not is_group(update):
@@ -863,9 +644,10 @@ async def ott_command(
         url
     )
 
-    processing = await update.message.reply_text(
-        "🌐 <b>Reading the OTT page...</b>",
-        parse_mode=ParseMode.HTML,
+    processing = (
+        await update.message.reply_text(
+            "🌐 Reading the OTT page..."
+        )
     )
 
     try:
@@ -878,14 +660,20 @@ async def ott_command(
         if not title:
 
             await processing.edit_text(
-                "❌ <b>I couldn't extract a title "
-                "from this page.</b>\n\n"
+                "❌ I couldn't extract a title "
+                "from this page.\n\n"
                 "Try:\n"
                 "<code>/poster Movie Name</code>",
                 parse_mode=ParseMode.HTML,
             )
 
             return
+
+        logger.info(
+            "OTT title=%s | platform=%s",
+            title,
+            platform,
+        )
 
         media = await asyncio.to_thread(
             search_media,
@@ -895,8 +683,9 @@ async def ott_command(
         if not media:
 
             await processing.edit_text(
-                "❌ <b>I couldn't find matching "
-                "artwork.</b>",
+                "❌ I couldn't find matching "
+                "artwork for:\n\n"
+                f"{html.escape(title)}",
                 parse_mode=ParseMode.HTML,
             )
 
@@ -919,9 +708,8 @@ async def ott_command(
         try:
 
             await processing.edit_text(
-                "⚠️ <b>The OTT page could not "
-                "be processed.</b>",
-                parse_mode=ParseMode.HTML,
+                "⚠️ The OTT page could not "
+                "be processed."
             )
 
         except Exception:
@@ -933,14 +721,11 @@ async def ott_command(
 # ============================================================
 
 async def navigation_callback(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
+    update,
+    context,
 ):
 
     query = update.callback_query
-
-    if not query:
-        return
 
     try:
 
@@ -974,10 +759,14 @@ async def navigation_callback(
 
             return
 
-        if query.from_user.id != user_id:
+        if (
+            query.from_user.id
+            != user_id
+        ):
 
             await query.answer(
-                "These buttons belong to another user.",
+                "These buttons belong "
+                "to another user.",
                 show_alert=True,
             )
 
@@ -995,7 +784,9 @@ async def navigation_callback(
             0,
             min(
                 index,
-                len(data["items"]) - 1,
+                len(
+                    data["items"]
+                ) - 1,
             ),
         )
 
@@ -1003,7 +794,9 @@ async def navigation_callback(
 
         item = data["items"][index]
 
-        image_url = item.get("url")
+        image_url = item.get(
+            "url"
+        )
 
         if not image_url:
 
@@ -1014,15 +807,19 @@ async def navigation_callback(
 
             return
 
+        media_data = data["media"]
+
         title = (
-            data["media"].get("title")
-            or data["media"].get("name")
-            or data["media"].get("original_title")
-            or data["media"].get("original_name")
+            media_data.get("title")
+            or media_data.get("name")
+            or media_data.get("original_title")
+            or media_data.get("original_name")
             or "Unknown"
         )
 
-        season = item.get("season")
+        season = item.get(
+            "season"
+        )
 
         if season:
 
@@ -1055,7 +852,7 @@ async def navigation_callback(
         thumbnail.seek(0)
 
         caption = build_caption(
-            data["media"],
+            media_data,
             data["platform"],
             item,
         )
@@ -1066,10 +863,14 @@ async def navigation_callback(
             parse_mode=ParseMode.HTML,
         )
 
-        keyboard = make_navigation_buttons(
-            key,
-            index,
-            len(data["items"]),
+        keyboard = (
+            make_navigation_buttons(
+                key,
+                index,
+                len(
+                    data["items"]
+                ),
+            )
         )
 
         await query.message.edit_media(
@@ -1095,12 +896,327 @@ async def navigation_callback(
 
 
 # ============================================================
-# ERROR HANDLER
+# FORCE SUB CALLBACK
+# ============================================================
+
+async def handle_force_sub_callback(
+    update,
+    context,
+):
+
+    pending = await force_sub_callback(
+        update,
+        context,
+    )
+
+    if not pending:
+        return
+
+    user = update.effective_user
+
+    if not user:
+        return
+
+    command = pending.get(
+        "command",
+        "",
+    ).lower()
+
+    args = pending.get(
+        "args",
+        [],
+    )
+
+    if command == "poster":
+
+        if not args:
+
+            await context.bot.send_message(
+                chat_id=update.effective_chat.id,
+                text="❌ No poster title was saved.",
+            )
+
+            return
+
+        title = " ".join(
+            args
+        ).strip()
+
+        processing = (
+            await context.bot.send_message(
+                chat_id=update.effective_chat.id,
+                text="🔎 Searching for artwork...",
+            )
+        )
+
+        try:
+
+            media = await asyncio.to_thread(
+                search_media,
+                title,
+            )
+
+            if not media:
+
+                await processing.edit_text(
+                    "❌ No matching movie, series, "
+                    "anime, serial or drama was found."
+                )
+
+                return
+
+            await processing.delete()
+
+            items = await asyncio.to_thread(
+                build_navigation_items,
+                media,
+            )
+
+            if not items:
+
+                await context.bot.send_message(
+                    chat_id=update.effective_chat.id,
+                    text="❌ No artwork was found.",
+                )
+
+                return
+
+            cleanup_navigation()
+
+            first = items[0]
+
+            main_title = (
+                media.get("title")
+                or media.get("name")
+                or media.get("original_title")
+                or media.get("original_name")
+                or "Unknown"
+            )
+
+            thumbnail = await asyncio.to_thread(
+                create_thumbnail,
+                first["url"],
+                main_title,
+            )
+
+            if not thumbnail:
+
+                await context.bot.send_message(
+                    chat_id=update.effective_chat.id,
+                    text="❌ Failed to create thumbnail.",
+                )
+
+                return
+
+            thumbnail.seek(0)
+
+            sent = await context.bot.send_photo(
+                chat_id=update.effective_chat.id,
+                photo=thumbnail,
+                caption=build_caption(
+                    media,
+                    None,
+                    first,
+                ),
+                parse_mode=ParseMode.HTML,
+            )
+
+            key = (
+                update.effective_chat.id,
+                user.id,
+                sent.message_id,
+            )
+
+            NAVIGATION[key] = {
+                "items": items,
+                "index": 0,
+                "media": media,
+                "platform": None,
+                "created_at": time.time(),
+            }
+
+            keyboard = make_navigation_buttons(
+                key,
+                0,
+                len(items),
+            )
+
+            if keyboard:
+
+                await sent.edit_reply_markup(
+                    reply_markup=keyboard
+                )
+
+        except Exception:
+
+            logger.exception(
+                "Pending poster execution failed"
+            )
+
+        return
+
+    if command == "ott":
+
+        if not args:
+
+            await context.bot.send_message(
+                chat_id=update.effective_chat.id,
+                text="❌ No OTT URL was saved.",
+            )
+
+            return
+
+        url = args[0].strip()
+
+        if not (
+            url.startswith("http://")
+            or url.startswith("https://")
+        ):
+
+            await context.bot.send_message(
+                chat_id=update.effective_chat.id,
+                text="❌ Invalid OTT URL.",
+            )
+
+            return
+
+        platform = detect_platform(
+            url
+        )
+
+        processing = (
+            await context.bot.send_message(
+                chat_id=update.effective_chat.id,
+                text="🌐 Reading the OTT page...",
+            )
+        )
+
+        try:
+
+            title = await asyncio.to_thread(
+                extract_title_from_url,
+                url,
+            )
+
+            if not title:
+
+                await processing.edit_text(
+                    "❌ I couldn't extract a title."
+                )
+
+                return
+
+            media = await asyncio.to_thread(
+                search_media,
+                title,
+            )
+
+            if not media:
+
+                await processing.edit_text(
+                    "❌ Matching artwork was not found."
+                )
+
+                return
+
+            await processing.delete()
+
+            items = await asyncio.to_thread(
+                build_navigation_items,
+                media,
+            )
+
+            if not items:
+
+                await context.bot.send_message(
+                    chat_id=update.effective_chat.id,
+                    text="❌ No artwork was found.",
+                )
+
+                return
+
+            cleanup_navigation()
+
+            first = items[0]
+
+            main_title = (
+                media.get("title")
+                or media.get("name")
+                or media.get("original_title")
+                or media.get("original_name")
+                or "Unknown"
+            )
+
+            thumbnail = await asyncio.to_thread(
+                create_thumbnail,
+                first["url"],
+                main_title,
+            )
+
+            if not thumbnail:
+
+                await context.bot.send_message(
+                    chat_id=update.effective_chat.id,
+                    text="❌ Failed to create thumbnail.",
+                )
+
+                return
+
+            thumbnail.seek(0)
+
+            sent = await context.bot.send_photo(
+                chat_id=update.effective_chat.id,
+                photo=thumbnail,
+                caption=build_caption(
+                    media,
+                    platform,
+                    first,
+                ),
+                parse_mode=ParseMode.HTML,
+            )
+
+            key = (
+                update.effective_chat.id,
+                user.id,
+                sent.message_id,
+            )
+
+            NAVIGATION[key] = {
+                "items": items,
+                "index": 0,
+                "media": media,
+                "platform": platform,
+                "created_at": time.time(),
+            }
+
+            keyboard = make_navigation_buttons(
+                key,
+                0,
+                len(items),
+            )
+
+            if keyboard:
+
+                await sent.edit_reply_markup(
+                    reply_markup=keyboard
+                )
+
+        except Exception:
+
+            logger.exception(
+                "Pending OTT execution failed"
+            )
+
+        return
+
+
+# ============================================================
+# ERROR
 # ============================================================
 
 async def error_handler(
-    update: object,
-    context: ContextTypes.DEFAULT_TYPE,
+    update,
+    context,
 ):
 
     logger.error(
@@ -1115,8 +1231,8 @@ async def error_handler(
 # ============================================================
 
 async def stats_command(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
+    update,
+    context,
 ):
 
     if not is_owner(update):
@@ -1146,8 +1262,8 @@ async def stats_command(
 # ============================================================
 
 async def broadcast_command(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
+    update,
+    context,
 ):
 
     if not is_owner(update):
@@ -1178,10 +1294,12 @@ async def broadcast_command(
 
         return
 
-    processing = await update.message.reply_text(
-        "📢 <b>Broadcast started...</b>\n\n"
-        f"👤 Users: <code>{len(users)}</code>",
-        parse_mode=ParseMode.HTML,
+    processing = (
+        await update.message.reply_text(
+            "📢 <b>Broadcast started...</b>\n\n"
+            f"👤 Users: <code>{len(users)}</code>",
+            parse_mode=ParseMode.HTML,
+        )
     )
 
     success = 0
@@ -1197,8 +1315,12 @@ async def broadcast_command(
 
             await context.bot.copy_message(
                 chat_id=user_id,
-                from_chat_id=source_message.chat_id,
-                message_id=source_message.message_id,
+                from_chat_id=(
+                    source_message.chat_id
+                ),
+                message_id=(
+                    source_message.message_id
+                ),
             )
 
             success += 1
@@ -1208,8 +1330,7 @@ async def broadcast_command(
             failed += 1
 
             logger.warning(
-                "Broadcast failed | "
-                "user=%s | error=%s",
+                "Broadcast failed | user=%s | error=%s",
                 user_id,
                 error,
             )
@@ -1235,8 +1356,8 @@ async def broadcast_command(
 # ============================================================
 
 async def authuser_command(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
+    update,
+    context,
 ):
 
     if not is_owner(update):
@@ -1277,7 +1398,8 @@ async def authuser_command(
 
     await update.message.reply_text(
         "✅ <b>User Authorized</b>\n\n"
-        f"👤 User ID: <code>{user_id}</code>",
+        f"👤 User ID: "
+        f"<code>{user_id}</code>",
         parse_mode=ParseMode.HTML,
     )
 
@@ -1287,8 +1409,8 @@ async def authuser_command(
 # ============================================================
 
 async def unauthuser_command(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
+    update,
+    context,
 ):
 
     if not is_owner(update):
@@ -1329,7 +1451,8 @@ async def unauthuser_command(
 
     await update.message.reply_text(
         "✅ <b>User Unauthorized</b>\n\n"
-        f"👤 User ID: <code>{user_id}</code>",
+        f"👤 User ID: "
+        f"<code>{user_id}</code>",
         parse_mode=ParseMode.HTML,
     )
 
@@ -1339,8 +1462,8 @@ async def unauthuser_command(
 # ============================================================
 
 async def authchat_command(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
+    update,
+    context,
 ):
 
     if not is_owner(update):
@@ -1381,7 +1504,8 @@ async def authchat_command(
 
     await update.message.reply_text(
         "✅ <b>Chat Authorized</b>\n\n"
-        f"💬 Chat ID: <code>{chat_id}</code>",
+        f"💬 Chat ID: "
+        f"<code>{chat_id}</code>",
         parse_mode=ParseMode.HTML,
     )
 
@@ -1391,8 +1515,8 @@ async def authchat_command(
 # ============================================================
 
 async def unauthchat_command(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
+    update,
+    context,
 ):
 
     if not is_owner(update):
@@ -1433,7 +1557,8 @@ async def unauthchat_command(
 
     await update.message.reply_text(
         "✅ <b>Chat Unauthorized</b>\n\n"
-        f"💬 Chat ID: <code>{chat_id}</code>",
+        f"💬 Chat ID: "
+        f"<code>{chat_id}</code>",
         parse_mode=ParseMode.HTML,
     )
 
@@ -1443,8 +1568,8 @@ async def unauthchat_command(
 # ============================================================
 
 async def ban_command(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
+    update,
+    context,
 ):
 
     if not is_owner(update):
@@ -1485,7 +1610,8 @@ async def ban_command(
 
     await update.message.reply_text(
         "🚫 <b>User Banned</b>\n\n"
-        f"👤 User ID: <code>{user_id}</code>",
+        f"👤 User ID: "
+        f"<code>{user_id}</code>",
         parse_mode=ParseMode.HTML,
     )
 
@@ -1495,8 +1621,8 @@ async def ban_command(
 # ============================================================
 
 async def unban_command(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
+    update,
+    context,
 ):
 
     if not is_owner(update):
@@ -1537,7 +1663,8 @@ async def unban_command(
 
     await update.message.reply_text(
         "✅ <b>User Unbanned</b>\n\n"
-        f"👤 User ID: <code>{user_id}</code>",
+        f"👤 User ID: "
+        f"<code>{user_id}</code>",
         parse_mode=ParseMode.HTML,
     )
 
@@ -1566,7 +1693,13 @@ def main():
         .build()
     )
 
-    group_filter = filters.ChatType.GROUPS
+    group_filter = (
+        filters.ChatType.GROUPS
+    )
+
+    # ========================================================
+    # BASIC
+    # ========================================================
 
     application.add_handler(
         CommandHandler(
@@ -1599,6 +1732,10 @@ def main():
         )
     )
 
+    # ========================================================
+    # POSTER
+    # ========================================================
+
     application.add_handler(
         CommandHandler(
             "poster",
@@ -1615,12 +1752,20 @@ def main():
         )
     )
 
+    # ========================================================
+    # NAVIGATION
+    # ========================================================
+
     application.add_handler(
         CallbackQueryHandler(
             navigation_callback,
             pattern=r"^poster_(prev|next):",
         )
     )
+
+    # ========================================================
+    # FORCE SUB
+    # ========================================================
 
     application.add_handler(
         CallbackQueryHandler(
@@ -1629,9 +1774,9 @@ def main():
         )
     )
 
-    application.add_error_handler(
-        error_handler
-    )
+    # ========================================================
+    # ADMIN
+    # ========================================================
 
     application.add_handler(
         CommandHandler(
@@ -1689,6 +1834,10 @@ def main():
         )
     )
 
+    application.add_error_handler(
+        error_handler
+    )
+
     logger.info(
         "Mohammed Poster Zone is online."
     )
@@ -1698,6 +1847,10 @@ def main():
         drop_pending_updates=True,
     )
 
+
+# ============================================================
+# START
+# ============================================================
 
 if __name__ == "__main__":
     main()
