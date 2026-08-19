@@ -7,13 +7,6 @@ import asyncio
 import logging
 import threading
 import time
-import io
-import requests
-
-# ------------------------- #
-# Don't Remove Credit
-# Owner @Mr_Mohammed_29
-# ------------------------- #
 
 from flask import Flask
 
@@ -23,17 +16,8 @@ from telegram import (
     InlineKeyboardMarkup,
     InputMediaPhoto,
 )
-# ------------------------- #
-# Don't Remove Credit
-# Owner @Mr_Mohammed_29
-# ------------------------- #
 
 from telegram.constants import ParseMode
-
-# ------------------------- #
-# Don't Remove Credit
-# Owner @Mr_Mohammed_29
-# ------------------------- #
 
 from telegram.ext import (
     Application,
@@ -43,11 +27,6 @@ from telegram.ext import (
     filters,
 )
 
-# ------------------------- #
-# Don't Remove Credit
-# Owner @Mr_Mohammed_29
-# ------------------------- #
-
 from config import (
     BOT_TOKEN,
     BOT_NAME,
@@ -55,11 +34,6 @@ from config import (
     OWNER_ID,
     UPDATES_URL,
 )
-
-# ------------------------- #
-# Don't Remove Credit
-# Owner @Mr_Mohammed_29
-# ------------------------- #
 
 from database import (
     init_database,
@@ -79,20 +53,10 @@ from database import (
     get_all_user_ids,
 )
 
-# ------------------------- #
-# Don't Remove Credit
-# Owner @Mr_Mohammed_29
-# ------------------------- #
-
 from platforms import (
     detect_platform,
     get_platforms_text,
 )
-
-# ------------------------- #
-# Don't Remove Credit
-# Owner @Mr_Mohammed_29
-# ------------------------- #
 
 from poster import (
     search_media,
@@ -102,19 +66,15 @@ from poster import (
     create_thumbnail,
 )
 
-# ------------------------- #
-# Don't Remove Credit
-# Owner @Mr_Mohammed_29
-# ------------------------- #
-
 from mohammed.forcesub import (
     force_sub,
     force_sub_callback,
     get_pending_request,
 )
+
+
 # ------------------------- #
-# Don't Remove Credit
-# Owner @Mr_Mohammed_29
+# Logging
 # ------------------------- #
 
 logging.basicConfig(
@@ -127,26 +87,17 @@ logging.basicConfig(
     level=logging.INFO,
 )
 
-# ------------------------- #
-# Don't Remove Credit
-# Owner @Mr_Mohammed_29
-# ------------------------- #
-
 logger = logging.getLogger(
     "mohammed-poster-zone"
 )
 
+
 # ------------------------- #
-# Don't Remove Credit
-# Owner @Mr_Mohammed_29
+# Flask Web Server
 # ------------------------- #
 
 app = Flask(__name__)
 
-# ------------------------- #
-# Don't Remove Credit
-# Owner @Mr_Mohammed_29
-# ------------------------- #
 
 @app.route("/")
 def home():
@@ -156,10 +107,6 @@ def home():
         "service": "Mohammed Poster Zone",
     }
 
-# ------------------------- #
-# Don't Remove Credit
-# Owner @Mr_Mohammed_29
-# ------------------------- #
 
 @app.route("/health")
 def health():
@@ -168,10 +115,6 @@ def health():
         "service": "Mohammed Poster Zone",
     }
 
-# ------------------------- #
-# Don't Remove Credit
-# Owner @Mr_Mohammed_29
-# ------------------------- #
 
 def run_web_server():
     app.run(
@@ -180,10 +123,10 @@ def run_web_server():
         debug=False,
         use_reloader=False,
     )
-  
+
+
 # ------------------------- #
-# Don't Remove Credit
-# Owner @Mr_Mohammed_29
+# Helpers
 # ------------------------- #
 
 def is_group(update: Update):
@@ -195,388 +138,44 @@ def is_group(update: Update):
         "supergroup",
     )
 
-# ------------------------- #
-# Don't Remove Credit
-# Owner @Mr_Mohammed_29
-# ------------------------- #
 
-def is_owner(
-    update: Update,
-):
-
+def is_owner(update: Update):
     user = update.effective_user
 
     if not user:
         return False
 
     return user.id == OWNER_ID
-    
+
+
 # ------------------------- #
-# Don't Remove Credit
-# Owner @Mr_Mohammed_29
+# Navigation Storage
 # ------------------------- #
-
-# --------------------------------------------------
-# Force Subscribe Callback Wrapper
-# --------------------------------------------------
-
-async def handle_force_sub_callback(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
-):
-
-    pending = await force_sub_callback(
-        update,
-        context,
-    )
-
-    # User has not joined yet
-    if not pending:
-        return
-
-    user = update.effective_user
-
-    if not user:
-        return
-
-    command = pending.get(
-        "command",
-        "",
-    ).lower()
-
-    args = pending.get(
-        "args",
-        [],
-    )
-
-    logger.info(
-        "Executing pending command after "
-        "force-sub verification | "
-        "user=%s | command=%s | args=%s",
-        user.id,
-        command,
-        args,
-    )
-
-    # --------------------------------------------------
-    # POSTER
-    # --------------------------------------------------
-
-    if command == "poster":
-
-        # Re-create the original command
-        update.message = update.message
-
-        # We cannot directly modify
-        # Telegram's original message.
-        #
-        # Instead, search the saved title
-        # and send the result directly.
-
-        if not args:
-
-            await context.bot.send_message(
-                chat_id=update.effective_chat.id,
-                text=(
-                    "❌ Nᴏ ᴘᴏsᴛᴇʀ ᴛɪᴛʟᴇ ᴡᴀs sᴀᴠᴇᴅ."
-                ),
-            )
-
-            return
-
-        title = " ".join(args).strip()
-
-        processing = await context.bot.send_message(
-            chat_id=update.effective_chat.id,
-            text="🔎 Sᴇᴀʀᴄʜɪɴɢ ғᴏʀ ᴀʀᴛᴡᴏʀᴋ...",
-        )
-
-        try:
-
-            media = await asyncio.to_thread(
-                search_media,
-                title,
-            )
-
-            if not media:
-
-                await processing.edit_text(
-                    "Nᴏ Mᴀᴛᴄʜɪɴɢ 𝗠𝗼𝘃𝗶𝗲𝘀 ᴏʀ 𝗦𝗲𝗿𝗶𝗲𝘀 ᴏʀ 𝗔𝗻𝗶𝗺𝗲 ᴏʀ 𝗦𝗲𝗿𝗶𝗮𝗹 ᴏʀ 𝗗𝗿𝗮𝗺𝗮 ᴡᴀs ғᴏᴜɴᴅ"
-                )
-
-                return
-
-            await processing.delete()
-
-            items = await asyncio.to_thread(
-                build_navigation_items,
-                media,
-            )
-
-            if not items:
-
-                await context.bot.send_message(
-                    chat_id=update.effective_chat.id,
-                    text=(
-                        "‼️ Nᴏ Aʀᴛᴡᴏʀᴋ Wᴀs Fᴏᴜɴᴅ Fᴏʀ Tʜɪs Tɪᴛʟᴇ.. "
-                    ),
-                )
-
-                return
-
-            first = items[0]
-
-            title = (
-                media.get("title")
-                or media.get("name")
-                or media.get("original_title")
-                or media.get("original_name")
-                or "Unknown"
-            )
-
-            thumbnail = await asyncio.to_thread(
-                create_thumbnail,
-                first["url"],
-                title,
-            )
-
-            if not thumbnail:
-                await context.bot.send_message(
-                    chat_id=update.effective_chat.id,
-                    text="❌ Failed to create thumbnail.",
-                )
-                return
-
-            thumbnail.seek(0)
-
-            sent = await context.bot.send_photo(
-                chat_id=update.effective_chat.id,
-                photo=thumbnail,
-                caption=build_caption(
-                     media,
-                     "Unknown platform",
-                     first,
-                ),
-                parse_mode=ParseMode.HTML,
-            ) 
-
-            cleanup_navigation()
-
-            key = (
-                update.effective_chat.id,
-                user.id,
-                sent.message_id,
-            )
-
-            NAVIGATION[key] = {
-                "items": items,
-                "index": 0,
-                "media": media,
-                "platform": "Unknown Platform",
-                "created_at": time.time(),
-            }
-
-            keyboard = make_navigation_buttons(
-                key,
-                0,
-                len(items),
-            )
-
-            if keyboard:
-
-                await sent.edit_reply_markup(
-                    reply_markup=keyboard
-                )
-
-        except Exception:
-
-            logger.exception(
-                "Pending poster execution failed"
-            )
-
-            try:
-
-                await processing.edit_text(
-                    "⚠️ 𝗔𝗻 𝗲𝗿𝗿𝗼𝗿 𝗼𝗰𝗰𝘂𝗿𝗿𝗲𝗱 𝘄𝗵𝗶𝗹𝗲 𝘀𝗲𝗮𝗿𝗰𝗵𝗶𝗻𝗴. 𝗣𝗹𝗲𝗮𝘀𝗲 𝘁𝗿𝘆 𝗮𝗴𝗮𝗶𝗻"
-                )
-
-            except Exception:
-
-                pass
-
-        return
-
-    # --------------------------------------------------
-    # OTT
-    # --------------------------------------------------
-
-    if command == "ott":
-
-        if not args:
-
-            await context.bot.send_message(
-                chat_id=update.effective_chat.id,
-                text=(
-                    "❌ Nᴏ 𝗢𝗧𝗧 URL Wᴀs Sᴀᴠᴇᴅ."
-                ),
-            )
-
-            return
-
-        url = args[0].strip()
-
-        if not (
-            url.startswith("http://")
-            or url.startswith("https://")
-        ):
-
-            await context.bot.send_message(
-                chat_id=update.effective_chat.id,
-                text=(
-                    "‼️ Iɴᴠᴀʟɪᴅ 𝗢𝗧𝗧 URL.."
-                ),
-            )
-
-            return
-
-        platform = detect_platform(
-            url
-        )
-
-        processing = await context.bot.send_message(
-            chat_id=update.effective_chat.id,
-            text="🌐 Rᴇᴀᴅɪɴɢ Tʜᴇ 𝗢𝗧𝗧 Pᴀɢᴇ...",
-        )
-
-        try:
-
-            title = await asyncio.to_thread(
-                extract_title_from_url,
-                url,
-            )
-
-            if not title:
-
-                await processing.edit_text(
-                    "❌ I ᴄᴏᴜʟᴅɴ'ᴛ ᴇxᴛʀᴀᴄᴛ ᴀ ᴛɪᴛʟᴇ ғʀᴏᴍ ᴛʜɪs ᴘᴀɢᴇ."
-                )
-
-                return
-
-            media = await asyncio.to_thread(
-                search_media,
-                title,
-            )
-
-            if not media:
-
-                await processing.edit_text(
-                    "❌ I ᴄᴏᴜʟᴅɴ'ᴛ ғɪɴᴅ ᴍᴀᴛᴄʜɪɴɢ ᴀʀᴛᴡᴏʀᴋ ғᴏʀ ᴛʜɪs ᴛɪᴛʟᴇ.."
-                )
-
-                return
-
-            await processing.delete()
-
-            items = await asyncio.to_thread(
-                build_navigation_items,
-                media,
-            )
-
-            if not items:
-
-                await context.bot.send_message(
-                    chat_id=update.effective_chat.id,
-                    text=(
-                        "🔎 ɴᴏ ᴀʀᴛᴡᴏʀᴋ ᴡᴀs ғᴏᴜɴᴅ"
-                    ),
-                )
-
-                return
-
-            first = items[0]
-
-            sent = await context.bot.send_photo(
-                chat_id=update.effective_chat.id,
-                photo=first["url"],
-                caption=build_caption(
-                    media,
-                    platform,
-                    first,
-                ),
-                parse_mode=ParseMode.HTML,
-            )
-
-            cleanup_navigation()
-
-            key = (
-                update.effective_chat.id,
-                user.id,
-                sent.message_id,
-            )
-
-            NAVIGATION[key] = {
-                "items": items,
-                "index": 0,
-                "media": media,
-                "platform": platform,
-                "created_at": time.time(),
-            }
-
-            keyboard = make_navigation_buttons(
-                key,
-                0,
-                len(items),
-            )
-
-            if keyboard:
-
-                await sent.edit_reply_markup(
-                    reply_markup=keyboard
-                )
-
-        except Exception:
-
-            logger.exception(
-                "‼️ ᴘᴇɴᴅɪɴɢ 𝗢𝗧𝗧 ᴇxᴇᴄᴜᴛɪᴏɴ ғᴀɪʟᴇᴅ"
-            )
-
-            try:
-
-                await processing.edit_text(
-                    "⚠️ ᴛʜᴇ 𝗢𝗧𝗧 ᴘᴀɢᴇ ᴄᴏᴜʟᴅ ɴᴏᴛ ʙᴇ ᴘʀᴏᴄᴇssᴇᴅ.."
-                )
-
-            except Exception:
-
-                pass
-
-        return
-
-# --------------------------------------------------
-# Navigation storage
-# --------------------------------------------------
 
 NAVIGATION = {}
 
 NAVIGATION_TTL = 60 * 60
 
-# ------------------------- #
-# Don't Remove Credit
-# Owner @Mr_Mohammed_29
-# ------------------------- #
 
 def cleanup_navigation():
     now = time.time()
 
     expired = []
 
-    for key, value in NAVIGATION.items():
+    for key, value in list(NAVIGATION.items()):
+        try:
+            created_at = value.get(
+                "created_at",
+                now,
+            )
 
-        if (
-            now - value["created_at"]
-            > NAVIGATION_TTL
-        ):
+            if (
+                now - created_at
+                > NAVIGATION_TTL
+            ):
+                expired.append(key)
+
+        except Exception:
             expired.append(key)
 
     for key in expired:
@@ -584,11 +183,7 @@ def cleanup_navigation():
             key,
             None,
         )
-      
-# ------------------------- #
-# Don't Remove Credit
-# Owner @Mr_Mohammed_29
-# ------------------------- #
+
 
 def make_navigation_buttons(
     key,
@@ -630,15 +225,28 @@ def make_navigation_buttons(
         [row]
     )
 
+
 # ------------------------- #
-# Don't Remove Credit
-# Owner @Mr_Mohammed_29
+# Execute Pending Force-Sub
 # ------------------------- #
 
-async def start_command(
+async def handle_force_sub_callback(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
 ):
+    try:
+        pending = await force_sub_callback(
+            update,
+            context,
+        )
+    except Exception:
+        logger.exception(
+            "Force-sub callback failed"
+        )
+        return
+
+    if not pending:
+        return
 
     user = update.effective_user
     chat = update.effective_chat
@@ -646,31 +254,358 @@ async def start_command(
     if not user or not chat:
         return
 
+    command = str(
+        pending.get(
+            "command",
+            "",
+        )
+    ).lower()
+
+    args = pending.get(
+        "args",
+        [],
+    )
+
+    if not isinstance(args, list):
+        args = [str(args)]
+
+    logger.info(
+        "Executing pending command after "
+        "force-sub verification | "
+        "user=%s | command=%s | args=%s",
+        user.id,
+        command,
+        args,
+    )
+
     # ------------------------- #
-    # Save user
+    # Pending /poster
     # ------------------------- #
+
+    if command == "poster":
+
+        if not args:
+            await context.bot.send_message(
+                chat_id=chat.id,
+                text=(
+                    "❌ Nᴏ ᴘᴏsᴛᴇʀ ᴛɪᴛʟᴇ ᴡᴀs sᴀᴠᴇᴅ."
+                ),
+            )
+            return
+
+        title = " ".join(
+            args
+        ).strip()
+
+        processing = await context.bot.send_message(
+            chat_id=chat.id,
+            text=(
+                "🔎 Sᴇᴀʀᴄʜɪɴɢ ғᴏʀ ᴀʀᴛᴡᴏʀᴋ..."
+            ),
+        )
+
+        try:
+            media = await asyncio.to_thread(
+                search_media,
+                title,
+            )
+
+            if not media:
+                await processing.edit_text(
+                    "Nᴏ Mᴀᴛᴄʜɪɴɢ 𝗠𝗼𝘃𝗶𝗲𝘀 ᴏʀ "
+                    "𝗦𝗲𝗿𝗶𝗲𝘀 ᴏʀ 𝗔𝗻𝗶𝗺𝗲 ᴏʀ "
+                    "𝗦𝗲𝗿𝗶𝗮𝗹 ᴏʀ 𝗗𝗿𝗮𝗺𝗮 ᴡᴀs ғᴏᴜɴᴅ"
+                )
+                return
+
+            items = await asyncio.to_thread(
+                build_navigation_items,
+                media,
+            )
+
+            if not items:
+                await processing.edit_text(
+                    "‼️ Nᴏ Aʀᴛᴡᴏʀᴋ Wᴀs Fᴏᴜɴᴅ "
+                    "Fᴏʀ Tʜɪs Tɪᴛʟᴇ.."
+                )
+                return
+
+            first = items[0]
+
+            title = (
+                media.get("title")
+                or media.get("name")
+                or media.get("original_title")
+                or media.get("original_name")
+                or "Unknown"
+            )
+
+            thumbnail = await asyncio.to_thread(
+                create_thumbnail,
+                first["url"],
+                title,
+            )
+
+            if not thumbnail:
+                await processing.edit_text(
+                    "❌ Failed to create thumbnail."
+                )
+                return
+
+            thumbnail.seek(0)
+
+            sent = await context.bot.send_photo(
+                chat_id=chat.id,
+                photo=thumbnail,
+                caption=build_caption(
+                    media,
+                    "Unknown platform",
+                    first,
+                ),
+                parse_mode=ParseMode.HTML,
+            )
+
+            try:
+                await processing.delete()
+            except Exception:
+                pass
+
+            cleanup_navigation()
+
+            key = (
+                chat.id,
+                user.id,
+                sent.message_id,
+            )
+
+            NAVIGATION[key] = {
+                "items": items,
+                "index": 0,
+                "media": media,
+                "platform": "Unknown Platform",
+                "created_at": time.time(),
+            }
+
+            keyboard = make_navigation_buttons(
+                key,
+                0,
+                len(items),
+            )
+
+            if keyboard:
+                await sent.edit_reply_markup(
+                    reply_markup=keyboard
+                )
+
+        except Exception:
+            logger.exception(
+                "Pending poster execution failed"
+            )
+
+            try:
+                await processing.edit_text(
+                    "⚠️ 𝗔𝗻 𝗲𝗿𝗿𝗼𝗿 𝗼𝗰𝗰𝘂𝗿𝗿𝗲𝗱 𝘄𝗵𝗶𝗹𝗲 "
+                    "𝘀𝗲𝗮𝗿𝗰𝗵𝗶𝗻𝗴. 𝗣𝗹𝗲𝗮𝘀𝗲 𝘁𝗿𝘆 𝗮𝗴𝗮𝗶𝗻"
+                )
+            except Exception:
+                pass
+
+        return
+
+    # ------------------------- #
+    # Pending /ott
+    # ------------------------- #
+
+    if command == "ott":
+
+        if not args:
+            await context.bot.send_message(
+                chat_id=chat.id,
+                text=(
+                    "❌ Nᴏ 𝗢𝗧𝗧 URL Wᴀs Sᴀᴠᴇᴅ."
+                ),
+            )
+            return
+
+        url = str(
+            args[0]
+        ).strip()
+
+        if not (
+            url.startswith("http://")
+            or url.startswith("https://")
+        ):
+            await context.bot.send_message(
+                chat_id=chat.id,
+                text="‼️ Iɴᴠᴀʟɪᴅ 𝗢𝗧𝗧 URL..",
+            )
+            return
+
+        platform = detect_platform(
+            url
+        )
+
+        processing = await context.bot.send_message(
+            chat_id=chat.id,
+            text=(
+                "🌐 Rᴇᴀᴅɪɴɢ Tʜᴇ 𝗢𝗧𝗧 Pᴀɢᴇ..."
+            ),
+        )
+
+        try:
+            title = await asyncio.to_thread(
+                extract_title_from_url,
+                url,
+            )
+
+            if not title:
+                await processing.edit_text(
+                    "❌ I ᴄᴏᴜʟᴅɴ'ᴛ ᴇxᴛʀᴀᴄᴛ ᴀ "
+                    "ᴛɪᴛʟᴇ ғʀᴏᴍ ᴛʜɪs ᴘᴀɢᴇ."
+                )
+                return
+
+            media = await asyncio.to_thread(
+                search_media,
+                title,
+            )
+
+            if not media:
+                await processing.edit_text(
+                    "❌ I ᴄᴏᴜʟᴅɴ'ᴛ ғɪɴᴅ ᴍᴀᴛᴄʜɪɴɢ "
+                    "ᴀʀᴛᴡᴏʀᴋ ғᴏʀ ᴛʜɪs ᴛɪᴛʟᴇ.."
+                )
+                return
+
+            items = await asyncio.to_thread(
+                build_navigation_items,
+                media,
+            )
+
+            if not items:
+                await processing.edit_text(
+                    "🔎 ɴᴏ ᴀʀᴛᴡᴏʀᴋ ᴡᴀs ғᴏᴜɴᴅ"
+                )
+                return
+
+            first = items[0]
+
+            title = (
+                media.get("title")
+                or media.get("name")
+                or media.get("original_title")
+                or media.get("original_name")
+                or "Unknown"
+            )
+
+            thumbnail = await asyncio.to_thread(
+                create_thumbnail,
+                first["url"],
+                title,
+            )
+
+            if not thumbnail:
+                await processing.edit_text(
+                    "❌ Failed to create thumbnail."
+                )
+                return
+
+            thumbnail.seek(0)
+
+            sent = await context.bot.send_photo(
+                chat_id=chat.id,
+                photo=thumbnail,
+                caption=build_caption(
+                    media,
+                    platform,
+                    first,
+                ),
+                parse_mode=ParseMode.HTML,
+            )
+
+            try:
+                await processing.delete()
+            except Exception:
+                pass
+
+            cleanup_navigation()
+
+            key = (
+                chat.id,
+                user.id,
+                sent.message_id,
+            )
+
+            NAVIGATION[key] = {
+                "items": items,
+                "index": 0,
+                "media": media,
+                "platform": platform,
+                "created_at": time.time(),
+            }
+
+            keyboard = make_navigation_buttons(
+                key,
+                0,
+                len(items),
+            )
+
+            if keyboard:
+                await sent.edit_reply_markup(
+                    reply_markup=keyboard
+                )
+
+        except Exception:
+            logger.exception(
+                "Pending OTT execution failed"
+            )
+
+            try:
+                await processing.edit_text(
+                    "⚠️ ᴛʜᴇ 𝗢𝗧𝗧 ᴘᴀɢᴇ ᴄᴏᴜʟᴅ ɴᴏᴛ ʙᴇ "
+                    "ᴘʀᴏᴄᴇssᴇᴅ.."
+                )
+            except Exception:
+                pass
+
+        return
+
+
+# ------------------------- #
+# /start
+# ------------------------- #
+
+async def start_command(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+):
+    user = update.effective_user
+    chat = update.effective_chat
+
+    if not user or not chat:
+        return
 
     try:
         await save_user(user)
         await save_chat(chat)
     except Exception:
         logger.exception(
-            "‼️ 𝖥𝖺𝗂𝗅𝖾𝖽 𝗍𝗈 𝗌𝖺𝗏𝖾 𝗌𝗍𝖺𝗋𝗍 𝗎𝗌𝖾𝗋/𝖼𝗁𝖺𝗍"
+            "Failed to save start user/chat"
         )
 
     # ------------------------- #
-    # Private start
+    # Private
     # ------------------------- #
 
     if chat.type == "private":
 
         if await is_banned(user.id):
-
             await update.message.reply_text(
-                "🚫 <b>Yᴏᴜ ᴀʀᴇ ʙᴀɴɴᴇᴅ ғʀᴏᴍ ᴜsɪɴɢ ᴛʜɪs ʙᴏᴛ..contact @Mr_Mohammed_29</b>",
+                "🚫 <b>Yᴏᴜ ᴀʀᴇ ʙᴀɴɴᴇᴅ ғʀᴏᴍ "
+                "ᴜsɪɴɢ ᴛʜɪs ʙᴏᴛ..</b>\n"
+                "Contact @Mr_Mohammed_29",
                 parse_mode=ParseMode.HTML,
             )
-
             return
 
         keyboard = InlineKeyboardMarkup(
@@ -678,7 +613,10 @@ async def start_command(
                 [
                     InlineKeyboardButton(
                         "• ᴘᴏsᴛᴇʀ ɢʀᴏᴜᴘ •",
-                        url="https://t.me/+hxfpcrzX0YFjNmRl",
+                        url=(
+                            "https://t.me/"
+                            "+hxfpcrzX0YFjNmRl"
+                        ),
                     )
                 ],
                 [
@@ -693,7 +631,7 @@ async def start_command(
         await update.message.reply_text(
             "🎬 <b>Mohammed Poster Zone</b>\n\n"
             "Welcome to Mohammed Poster bot! 👋\n\n"
-            "Please Use This Bot In Our Poster Group.", 
+            "Please Use This Bot In Our Poster Group.",
             reply_markup=keyboard,
             parse_mode=ParseMode.HTML,
         )
@@ -701,14 +639,13 @@ async def start_command(
         return
 
     # ------------------------- #
-    # Group start
+    # Group
     # ------------------------- #
 
     if chat.type in (
         "group",
         "supergroup",
     ):
-
         await update.message.reply_text(
             "🎬 <b>Mohammed Poster Zone</b>\n\n"
             "Your movies, series, drama, anime, "
@@ -723,20 +660,15 @@ async def start_command(
             parse_mode=ParseMode.HTML,
         )
 
-# ------------------------- #
-# Don't Remove Credit
-# Owner @Mr_Mohammed_29
-# ------------------------- #
 
-# --------------------------------------------------
+# ------------------------- #
 # /help
-# --------------------------------------------------
+# ------------------------- #
 
 async def help_command(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
 ):
-
     if not is_group(update):
         return
 
@@ -765,53 +697,53 @@ async def help_command(
         disable_web_page_preview=True,
     )
 
-# ------------------------- #
-# Don't Remove Credit
-# Owner @Mr_Mohammed_29
-# ------------------------- #
 
-# --------------------------------------------------
+# ------------------------- #
 # /about
-# --------------------------------------------------
+# ------------------------- #
 
 async def about_command(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
 ):
-
     if not is_group(update):
         return
 
     await update.message.reply_text(
         "⍟───[ MY ᴅᴇᴛᴀɪʟꜱ ]───⍟\n\n"
         "‣ ᴍʏ ɴᴀᴍᴇ : "
-        "[ᴍᴏʜᴀᴍᴍᴇᴅ ᴘᴏsᴛᴇʀ ᴢᴏɴᴇ](https://t.me/Mohammed_Poster_bot)\n"
+        "[ᴍᴏʜᴀᴍᴍᴇᴅ ᴘᴏsᴛᴇʀ ᴢᴏɴᴇ]"
+        "(https://t.me/Mohammed_Poster_bot)\n"
         "‣ ᴅᴇᴠᴇʟᴏᴘᴇʀ : "
-        "[ᴍᴏʜᴀᴍᴍᴇᴅ](https://t.me/Mr_Mohammed_29)\n"
+        "[ᴍᴏʜᴀᴍᴍᴇᴅ]"
+        "(https://t.me/Mr_Mohammed_29)\n"
         "‣ ʟɪʙʀᴀʀʏ : "
-        "[ᴘʏᴛʜᴏɴ-ᴛᴇʟᴇɢʀᴀᴍ-ʙᴏᴛ](https://pypi.org/project/python-telegram-bot/)\n"
+        "[ᴘʏᴛʜᴏɴ-ᴛᴇʟᴇɢʀᴀᴍ-ʙᴏᴛ]"
+        "(https://pypi.org/project/"
+        "python-telegram-bot/)\n"
         "‣ ʟᴀɴɢᴜᴀɢᴇ : "
-        "[ᴘʏᴛʜᴏɴ 𝟹](https://www.python.org/downloads/)\n"
+        "[ᴘʏᴛʜᴏɴ 𝟹]"
+        "(https://www.python.org/downloads/)\n"
         "‣ ᴅᴀᴛᴀ ʙᴀsᴇ : "
-        "[ᴍᴏɴɢᴏ ᴅʙ](https://www.mongodb.com/)\n"
+        "[ᴍᴏɴɢᴏ ᴅʙ]"
+        "(https://www.mongodb.com/)\n"
         "‣ ʙᴏᴛ sᴇʀᴠᴇʀ : "
-        "[ʙᴏᴛ sᴇʀᴠᴇʀ](https://render.com)\n"
+        "[ʙᴏᴛ sᴇʀᴠᴇʀ]"
+        "(https://render.com)\n"
         "‣ ᴜᴘᴅᴀᴛᴇs : "
-        "[Aᴇʀᴏ Uɴɪᴛʏ](https://t.me/Aero_Unity)\n"
+        "[Aᴇʀᴏ Uɴɪᴛʏ]"
+        "(https://t.me/Aero_Unity)\n"
         "‣ ʙᴜɪʟᴅ sᴛᴀᴛᴜs : "
-        "ᴠ3.𝟶 [sᴛᴀʙʟᴇ](https://t.me/Aero_Unity)",
+        "ᴠ3.𝟶 [sᴛᴀʙʟᴇ]"
+        "(https://t.me/Aero_Unity)",
         parse_mode=ParseMode.MARKDOWN,
         disable_web_page_preview=True,
     )
 
-# ------------------------- #
-# Don't Remove Credit
-# Owner @Mr_Mohammed_29
-# ------------------------- #
 
-# --------------------------------------------------
+# ------------------------- #
 # /platforms
-# --------------------------------------------------
+# ------------------------- #
 
 async def platforms_command(
     update: Update,
@@ -826,20 +758,19 @@ async def platforms_command(
         parse_mode=ParseMode.HTML,
     )
 
-# ------------------------- #
-# Don't Remove Credit
-# Owner @Mr_Mohammed_29
-# ------------------------- #
 
-# --------------------------------------------------
-# Send poster
-# --------------------------------------------------
+# ------------------------- #
+# Send Poster Result
+# ------------------------- #
 
 async def send_poster_result(
     update: Update,
     media: dict,
     platform: str,
 ):
+    if not update.message:
+        return
+
     items = await asyncio.to_thread(
         build_navigation_items,
         media,
@@ -847,7 +778,8 @@ async def send_poster_result(
 
     if not items:
         await update.message.reply_text(
-            "❌ <b>ɴᴏ ᴀʀᴛᴡᴏʀᴋ ᴡᴀs ғᴏᴜɴᴅ ғᴏʀ ᴛʜɪs ᴛɪᴛʟᴇ.</b>",
+            "❌ <b>ɴᴏ ᴀʀᴛᴡᴏʀᴋ ᴡᴀs ғᴏᴜɴᴅ "
+            "ғᴏʀ ᴛʜɪs ᴛɪᴛʟᴇ.</b>",
             parse_mode=ParseMode.HTML,
         )
         return
@@ -883,7 +815,7 @@ async def send_poster_result(
         photo=thumbnail,
         caption=build_caption(
             media,
-            platform,
+            platform or "Unknown platform",
             first,
         ),
         parse_mode=ParseMode.HTML,
@@ -899,7 +831,7 @@ async def send_poster_result(
         "items": items,
         "index": 0,
         "media": media,
-        "platform": platform,
+        "platform": platform or "Unknown platform",
         "created_at": time.time(),
     }
 
@@ -913,14 +845,11 @@ async def send_poster_result(
         await sent.edit_reply_markup(
             reply_markup=keyboard,
         )
-        
+
+
 # ------------------------- #
-# Don't Remove Credit
-# Owner @Mr_Mohammed_29
-# ------------------------- #
-# --------------------------------------------------
 # /poster
-# --------------------------------------------------
+# ------------------------- #
 
 async def poster_command(
     update: Update,
@@ -929,7 +858,14 @@ async def poster_command(
     if not is_group(update):
         return
 
-    # FORCE SUB CHECK
+    if await is_banned(
+        update.effective_user.id
+    ):
+        await update.message.reply_text(
+            "🚫 You are banned from using this bot."
+        )
+        return
+
     if not await force_sub(
         update,
         context,
@@ -961,16 +897,21 @@ async def poster_command(
 
         if not media:
             await processing.edit_text(
-                "‼️ Nᴏ Mᴀᴛᴄʜɪɴɢ 𝗠𝗼𝘃𝗶𝗲𝘀 ᴏʀ 𝗦𝗲𝗿𝗶𝗲𝘀 ᴏʀ 𝗔𝗻𝗶𝗺𝗲 ᴏʀ 𝗦𝗲𝗿𝗶𝗮𝗹 ᴏʀ 𝗗𝗿𝗮𝗺𝗮 ᴡᴀs ғᴏᴜɴᴅ"
+                "‼️ Nᴏ Mᴀᴛᴄʜɪɴɢ 𝗠𝗼𝘃𝗶𝗲𝘀 ᴏʀ "
+                "𝗦𝗲𝗿𝗶𝗲𝘀 ᴏʀ 𝗔𝗻𝗶𝗺ᴇ ᴏʀ "
+                "𝗦𝗲𝗿𝗶𝗮𝗹 ᴏʀ 𝗗𝗿ᴀᴍᴀ ᴡᴀs ғᴏᴜɴᴅ"
             )
             return
 
-        await processing.delete()
+        try:
+            await processing.delete()
+        except Exception:
+            pass
 
         await send_poster_result(
             update,
             media,
-            None,
+            "Unknown platform",
         )
 
     except Exception:
@@ -980,19 +921,16 @@ async def poster_command(
 
         try:
             await processing.edit_text(
-                "⚠️  𝗔𝗻 𝗲𝗿𝗿𝗼𝗿 𝗼𝗰𝗰𝘂𝗿𝗿𝗲𝗱 𝘄𝗵𝗶𝗹𝗲 𝘀𝗲𝗮𝗿𝗰𝗵𝗶𝗻𝗴. 𝗣𝗹𝗲𝗮𝘀𝗲 𝘁𝗿𝘆 𝗮𝗴𝗮𝗶𝗻"
+                "⚠️ 𝗔𝗻 𝗲𝗿𝗿𝗼𝗿 ᴏᴄᴄᴜʀʀᴇᴅ 𝘄𝗵𝗶𝗹𝗲 "
+                "𝘀𝗲𝗮𝗿𝗰𝗵𝗶𝗻𝗴. 𝗣𝗹𝗲𝗮𝘀𝗲 𝘁𝗿𝘆 𝗮𝗴𝗮𝗶𝗻"
             )
         except Exception:
             pass
 
-# ------------------------- #
-# Don't Remove Credit
-# Owner @Mr_Mohammed_29
-# ------------------------- #
 
-# --------------------------------------------------
+# ------------------------- #
 # /ott
-# --------------------------------------------------
+# ------------------------- #
 
 async def ott_command(
     update: Update,
@@ -1001,7 +939,14 @@ async def ott_command(
     if not is_group(update):
         return
 
-    # FORCE SUB CHECK
+    if await is_banned(
+        update.effective_user.id
+    ):
+        await update.message.reply_text(
+            "🚫 You are banned from using this bot."
+        )
+        return
+
     if not await force_sub(
         update,
         context,
@@ -1071,99 +1016,17 @@ async def ott_command(
             )
             return
 
-        await processing.delete()
-
-        # ------------------------- #
-        # Get Artwork
-        # ------------------------- #
-
-        items = await asyncio.to_thread(
-            build_navigation_items,
-            media,
-        )
-
-        if not items:
-            await update.message.reply_text(
-                "❌ No artwork was found for "
-                "this title."
-            )
-            return
-
-        cleanup_navigation()
-
-        first = items[0]
-
-        # ------------------------- #
-        # Create Thumbnail
-        # ------------------------- #
-
-        title = (
-            media.get("title")
-            or media.get("name")
-            or media.get("original_title")
-            or media.get("original_name")
-            or "Unknown"
-        )
-
-        thumbnail = await asyncio.to_thread(
-            create_thumbnail,
-            first["url"],
-            title,
-        )
-
-        if not thumbnail:
-            await context.bot.send_message(
-                chat_id=update.effective_chat.id,
-                text="❌ Failed to create thumbnail.",
-            )
-            return
-
-        # ------------------------- #
-        # Send Thumbnail
-        # ------------------------- #
-
-        sent = await context.bot.send_photo(
-            chat_id=update.effective_chat.id,
-            photo=thumbnail,
-            caption=build_caption(
-                media,
-                platform,
-                first,
-            ),
-            parse_mode=ParseMode.HTML,
-        )
-
-        # ------------------------- #
-        # Save Navigation
-        # ------------------------- #
-
-        key = (
-            update.effective_chat.id,
-            update.effective_user.id,
-            sent.message_id,
-        )
-
-        NAVIGATION[key] = {
-            "items": items,
-            "index": 0,
-            "media": media,
-            "platform": platform,
-            "created_at": time.time(),
-        }
-
-        keyboard = make_navigation_buttons(
-            key,
-            0,
-            len(items),
-        )
-
-        await processing.delete()
+        try:
+            await processing.delete()
+        except Exception:
+            pass
 
         await send_poster_result(
             update,
             media,
             platform,
         )
+
     except Exception:
         logger.exception(
             "OTT processing failed"
@@ -1177,16 +1040,10 @@ async def ott_command(
         except Exception:
             pass
 
-            # ------------------------- #
 
 # ------------------------- #
-# Don't Remove Credit
-# Owner @Mr_Mohammed_29
-# ------------------------- #
-
-# --------------------------------------------------
 # Back / Next
-# --------------------------------------------------
+# ------------------------- #
 
 async def navigation_callback(
     update: Update,
@@ -1194,12 +1051,14 @@ async def navigation_callback(
 ):
     query = update.callback_query
 
-    try:
-        await query.answer()
+    if not query:
+        return
 
+    try:
         parts = query.data.split(":")
 
         if len(parts) != 4:
+            await query.answer()
             return
 
         action = parts[0]
@@ -1223,8 +1082,6 @@ async def navigation_callback(
             )
             return
 
-        # Only the user who requested the poster
-        # can control the buttons.
         if query.from_user.id != user_id:
             await query.answer(
                 "These buttons belong to another user.",
@@ -1239,6 +1096,10 @@ async def navigation_callback(
 
         elif action == "poster_prev":
             index -= 1
+
+        else:
+            await query.answer()
+            return
 
         index = max(
             0,
@@ -1268,10 +1129,6 @@ async def navigation_callback(
             item.get("type"),
         )
 
-        # --------------------------------------------------
-        # Movie / Series title
-        # --------------------------------------------------
-
         title = (
             data["media"].get("title")
             or data["media"].get("name")
@@ -1280,7 +1137,6 @@ async def navigation_callback(
             or "Unknown"
         )
 
-        # Add season name when browsing a season.
         season = item.get("season")
 
         if season:
@@ -1293,29 +1149,6 @@ async def navigation_callback(
                 title = (
                     f"{title} {season_name}"
                 )
-
-        # --------------------------------------------------
-        # Create thumbnail with title
-        # --------------------------------------------------
-
-        title = (
-            data["media"].get("title")
-            or data["media"].get("name")
-            or data["media"].get("original_title")
-            or data["media"].get("original_name")
-            or "Unknown"
-        )
-
-        season = item.get("season")
-
-        if season:
-            season_name = season.get(
-                "name",
-                "",
-            )
-
-            if season_name:
-                title = f"{title} {season_name}"
 
         thumbnail = await asyncio.to_thread(
             create_thumbnail,
@@ -1332,36 +1165,31 @@ async def navigation_callback(
 
         thumbnail.seek(0)
 
-        # --------------------------------------------------
-        # Caption
-        # --------------------------------------------------
-
         caption = build_caption(
             data["media"],
             data["platform"],
             item,
         )
 
-        # --------------------------------------------------
-        # Replace existing Telegram photo
-        # --------------------------------------------------
+        media = InputMediaPhoto(
+            media=thumbnail,
+            caption=caption,
+            parse_mode=ParseMode.HTML,
+        )
+
+        keyboard = make_navigation_buttons(
+            key,
+            index,
+            len(data["items"]),
+        )
 
         try:
-
-            media = InputMediaPhoto(
-                media=thumbnail,
-                caption=caption,
-                parse_mode=ParseMode.HTML,
-            )
-
             await query.message.edit_media(
                 media=media,
-                reply_markup=make_navigation_buttons(
-                    key,
-                    index,
-                    len(data["items"]),
-                ),
+                reply_markup=keyboard,
             )
+
+            await query.answer()
 
         except Exception:
             logger.exception(
@@ -1372,8 +1200,6 @@ async def navigation_callback(
                 "❌ Telegram could not update this artwork.",
                 show_alert=True,
             )
-
-            return
 
     except Exception:
         logger.exception(
@@ -1388,14 +1214,10 @@ async def navigation_callback(
         except Exception:
             pass
 
-# ------------------------- #
-# Don't Remove Credit
-# Owner @Mr_Mohammed_29
-# ------------------------- #
 
-# --------------------------------------------------
-# Error handler
-# --------------------------------------------------
+# ------------------------- #
+# Error Handler
+# ------------------------- #
 
 async def error_handler(
     update: object,
@@ -1407,21 +1229,22 @@ async def error_handler(
         exc_info=context.error,
     )
 
+
+# ------------------------- #
+# /stats
+# ------------------------- #
+
 async def stats_command(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
 ):
-
     if not is_owner(update):
-
         await update.message.reply_text(
             "🚫 Owner only command."
         )
-
         return
 
     total_users = await get_user_count()
-
     total_chats = await get_chat_count()
 
     await update.message.reply_text(
@@ -1434,42 +1257,35 @@ async def stats_command(
         parse_mode=ParseMode.HTML,
     )
 
+
 # ------------------------- #
-# Don't Remove Credit
-# Owner @Mr_Mohammed_29
+# /broadcast
 # ------------------------- #
 
 async def broadcast_command(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
 ):
-
     if not is_owner(update):
-
         await update.message.reply_text(
             "🚫 Owner only command."
         )
-
         return
 
     if not update.message.reply_to_message:
-
         await update.message.reply_text(
             "❌ Reply to a message with "
             "<code>/broadcast</code>.",
             parse_mode=ParseMode.HTML,
         )
-
         return
 
     users = await get_all_user_ids()
 
     if not users:
-
         await update.message.reply_text(
             "❌ No users found."
         )
-
         return
 
     processing = await update.message.reply_text(
@@ -1486,23 +1302,16 @@ async def broadcast_command(
     )
 
     for user_id in users:
-
         try:
-
             await context.bot.copy_message(
                 chat_id=user_id,
-                from_chat_id=(
-                    source_message.chat_id
-                ),
-                message_id=(
-                    source_message.message_id
-                ),
+                from_chat_id=source_message.chat_id,
+                message_id=source_message.message_id,
             )
 
             success += 1
 
         except Exception as error:
-
             failed += 1
 
             logger.warning(
@@ -1526,25 +1335,22 @@ async def broadcast_command(
         parse_mode=ParseMode.HTML,
     )
 
+
 # ------------------------- #
-# Don't Remove Credit
-# Owner @Mr_Mohammed_29
+# /authuser
 # ------------------------- #
 
 async def authuser_command(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
 ):
-
     if not is_owner(update):
-
         await update.message.reply_text(
             "🚫 Owner only command."
         )
         return
 
     if not context.args:
-
         await update.message.reply_text(
             "Usage:\n"
             "<code>/authuser USER_ID</code>",
@@ -1553,13 +1359,10 @@ async def authuser_command(
         return
 
     try:
-
         user_id = int(
             context.args[0]
         )
-
     except ValueError:
-
         await update.message.reply_text(
             "❌ Invalid user ID."
         )
@@ -1576,25 +1379,22 @@ async def authuser_command(
         parse_mode=ParseMode.HTML,
     )
 
+
 # ------------------------- #
-# Don't Remove Credit
-# Owner @Mr_Mohammed_29
+# /unauthuser
 # ------------------------- #
 
 async def unauthuser_command(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
 ):
-
     if not is_owner(update):
-
         await update.message.reply_text(
             "🚫 Owner only command."
         )
         return
 
     if not context.args:
-
         await update.message.reply_text(
             "Usage:\n"
             "<code>/unauthuser USER_ID</code>",
@@ -1603,13 +1403,10 @@ async def unauthuser_command(
         return
 
     try:
-
         user_id = int(
             context.args[0]
         )
-
     except ValueError:
-
         await update.message.reply_text(
             "❌ Invalid user ID."
         )
@@ -1626,25 +1423,22 @@ async def unauthuser_command(
         parse_mode=ParseMode.HTML,
     )
 
+
 # ------------------------- #
-# Don't Remove Credit
-# Owner @Mr_Mohammed_29
+# /authchat
 # ------------------------- #
 
 async def authchat_command(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
 ):
-
     if not is_owner(update):
-
         await update.message.reply_text(
             "🚫 Owner only command."
         )
         return
 
     if not context.args:
-
         await update.message.reply_text(
             "Usage:\n"
             "<code>/authchat CHAT_ID</code>",
@@ -1653,13 +1447,10 @@ async def authchat_command(
         return
 
     try:
-
         chat_id = int(
             context.args[0]
         )
-
     except ValueError:
-
         await update.message.reply_text(
             "❌ Invalid chat ID."
         )
@@ -1676,25 +1467,22 @@ async def authchat_command(
         parse_mode=ParseMode.HTML,
     )
 
+
 # ------------------------- #
-# Don't Remove Credit
-# Owner @Mr_Mohammed_29
+# /unauthchat
 # ------------------------- #
 
 async def unauthchat_command(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
 ):
-
     if not is_owner(update):
-
         await update.message.reply_text(
             "🚫 Owner only command."
         )
         return
 
     if not context.args:
-
         await update.message.reply_text(
             "Usage:\n"
             "<code>/unauthchat CHAT_ID</code>",
@@ -1703,13 +1491,10 @@ async def unauthchat_command(
         return
 
     try:
-
         chat_id = int(
             context.args[0]
         )
-
     except ValueError:
-
         await update.message.reply_text(
             "❌ Invalid chat ID."
         )
@@ -1726,25 +1511,22 @@ async def unauthchat_command(
         parse_mode=ParseMode.HTML,
     )
 
+
 # ------------------------- #
-# Don't Remove Credit
-# Owner @Mr_Mohammed_29
+# /ban
 # ------------------------- #
 
 async def ban_command(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
 ):
-
     if not is_owner(update):
-
         await update.message.reply_text(
             "🚫 Owner only command."
         )
         return
 
     if not context.args:
-
         await update.message.reply_text(
             "Usage:\n"
             "<code>/ban USER_ID</code>",
@@ -1753,15 +1535,18 @@ async def ban_command(
         return
 
     try:
-
         user_id = int(
             context.args[0]
         )
-
     except ValueError:
-
         await update.message.reply_text(
             "❌ Invalid user ID."
+        )
+        return
+
+    if user_id == OWNER_ID:
+        await update.message.reply_text(
+            "❌ You cannot ban the owner."
         )
         return
 
@@ -1776,25 +1561,22 @@ async def ban_command(
         parse_mode=ParseMode.HTML,
     )
 
+
 # ------------------------- #
-# Don't Remove Credit
-# Owner @Mr_Mohammed_29
+# /unban
 # ------------------------- #
 
 async def unban_command(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
 ):
-
     if not is_owner(update):
-
         await update.message.reply_text(
             "🚫 Owner only command."
         )
         return
 
     if not context.args:
-
         await update.message.reply_text(
             "Usage:\n"
             "<code>/unban USER_ID</code>",
@@ -1803,13 +1585,10 @@ async def unban_command(
         return
 
     try:
-
         user_id = int(
             context.args[0]
         )
-
     except ValueError:
-
         await update.message.reply_text(
             "❌ Invalid user ID."
         )
@@ -1827,10 +1606,9 @@ async def unban_command(
     )
 
 
-
-# --------------------------------------------------
+# ------------------------- #
 # Main
-# --------------------------------------------------
+# ------------------------- #
 
 def main():
 
@@ -1852,9 +1630,11 @@ def main():
         .build()
     )
 
-    group_filter = (
-        filters.ChatType.GROUPS
-    )
+    group_filter = filters.ChatType.GROUPS
+
+    # ------------------------- #
+    # User Commands
+    # ------------------------- #
 
     application.add_handler(
         CommandHandler(
@@ -1903,12 +1683,20 @@ def main():
         )
     )
 
+    # ------------------------- #
+    # Navigation
+    # ------------------------- #
+
     application.add_handler(
         CallbackQueryHandler(
             navigation_callback,
             pattern=r"^poster_(prev|next):",
         )
     )
+
+    # ------------------------- #
+    # Force Subscribe
+    # ------------------------- #
 
     application.add_handler(
         CallbackQueryHandler(
@@ -1917,9 +1705,9 @@ def main():
         )
     )
 
-    application.add_error_handler(
-        error_handler
-    )
+    # ------------------------- #
+    # Owner Commands
+    # ------------------------- #
 
     application.add_handler(
         CommandHandler(
@@ -1977,6 +1765,13 @@ def main():
         )
     )
 
+    # ------------------------- #
+    # Error Handler
+    # ------------------------- #
+
+    application.add_error_handler(
+        error_handler
+    )
 
     logger.info(
         "Mohammed Poster Zone is online."
@@ -1987,13 +1782,14 @@ def main():
         drop_pending_updates=True,
     )
 
+
 # ------------------------- #
-# Don't Remove Credit
-# Owner @Mr_Mohammed_29
+# Entry Point
 # ------------------------- #
 
 if __name__ == "__main__":
     main()
+
 
 # ------------------------- #
 # Don't Remove Credit
