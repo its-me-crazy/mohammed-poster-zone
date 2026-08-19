@@ -288,6 +288,69 @@ def search_tv(
     )
 
 # ------------------------- #
+# Watch Providers
+# ------------------------- #
+
+def get_watch_providers(
+    media,
+):
+    try:
+        media_type = media.get(
+            "media_type"
+        )
+
+        media_id = media.get(
+            "id"
+        )
+
+        if not media_type or not media_id:
+            return []
+
+        data = tmdb_get(
+            f"/{media_type}/{media_id}/watch/providers"
+        )
+
+        results = data.get(
+            "results",
+            {}
+        )
+
+        # Prefer India
+        region = (
+            results.get("IN")
+            or results.get("US")
+        )
+
+        if not region:
+            return []
+
+        providers = []
+
+        # Streaming services
+        for provider in (
+            region.get("flatrate", [])
+            + region.get("free", [])
+            + region.get("ads", [])
+        ):
+
+            name = provider.get(
+                "provider_name"
+            )
+
+            if name and name not in providers:
+                providers.append(name)
+
+        return providers
+
+    except Exception:
+
+        logger.exception(
+            "Failed to get watch providers"
+        )
+
+        return []
+
+# ------------------------- #
 # Candidate
 # ------------------------- #
 
@@ -416,6 +479,8 @@ def search_media(
         title.lower().strip()
     )
 
+    selected = None
+
     # Exact match first
     for candidate in candidates:
 
@@ -430,15 +495,27 @@ def search_media(
         ).lower().strip()
 
         if (
-            candidate_title
-            == normalized
-            or original_title
-            == normalized
+            candidate_title == normalized
+            or original_title == normalized
         ):
 
-            return candidate
+            selected = candidate
+            break
 
-    return candidates[0]
+    if selected is None:
+        selected = candidates[0]
+
+    # ------------------------- #
+    # Get streaming providers
+    # ------------------------- #
+
+    providers = get_watch_providers(
+        selected
+    )
+
+    selected["providers"] = providers
+
+    return selected
 
 # ------------------------- #
 # Image URL
@@ -1243,14 +1320,14 @@ def build_caption(
         )
 
         platform_line = (
-            f"<b>{platform} Poster:</b> "
+            f"<b>{platform_name} Poster:</b> "
             f"{current_url}"
         )
 
     else:
 
         platform_line = (
-            f"<b>{platform} Poster:</b>"
+            f"<b>{platform_name} Poster:</b>"
         )
 
     # ------------------------------------------
