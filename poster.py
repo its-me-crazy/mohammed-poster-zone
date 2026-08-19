@@ -2,7 +2,10 @@
 # Don't Remove Credit
 # Owner @Mr_Mohammed_29
 # ============================================================
+
+# ============================================================
 # poster.py
+# Mohammed Poster Zone
 # ============================================================
 
 import io
@@ -14,7 +17,11 @@ from urllib.parse import quote_plus, urlparse
 import requests
 from PIL import Image
 
-from config import TMDB_API_KEY
+from config import (
+    TMDB_API_KEY,
+    TMDB_LANGUAGE,
+    REQUEST_TIMEOUT,
+)
 
 
 logger = logging.getLogger(
@@ -26,18 +33,25 @@ logger = logging.getLogger(
 # CONSTANTS
 # ============================================================
 
-TMDB_API_URL = "https://api.themoviedb.org/3"
+TMDB_API_URL = (
+    "https://api.themoviedb.org/3"
+)
 
 TMDB_IMAGE_URL = (
     "https://image.tmdb.org/t/p/original"
 )
 
+
 # ============================================================
-# IMPORTANT
+# EXACT THUMBNAIL SIZE
 #
-# Final Telegram thumbnail = EXACTLY 5:4
+# 1000 x 800
 #
-# 1000 x 800 = 5:4
+# 1000 / 800 = 1.25
+# 5 / 4 = 1.25
+#
+# Therefore:
+# 1000 x 800 = EXACTLY 5:4
 # ============================================================
 
 THUMB_WIDTH = 1000
@@ -67,20 +81,30 @@ SESSION.headers.update(
 # TMDB REQUEST
 # ============================================================
 
-def tmdb_get(endpoint, params=None):
+def tmdb_get(
+    endpoint,
+    params=None,
+):
+    """
+    Make a request to TMDB.
+    """
 
     if not TMDB_API_KEY:
         raise RuntimeError(
             "TMDB_API_KEY is missing."
         )
 
-    params = dict(params or {})
+    if params is None:
+        params = {}
+
+    params = dict(params)
+
     params["api_key"] = TMDB_API_KEY
 
     response = SESSION.get(
         f"{TMDB_API_URL}{endpoint}",
         params=params,
-        timeout=20,
+        timeout=REQUEST_TIMEOUT,
     )
 
     response.raise_for_status()
@@ -92,7 +116,12 @@ def tmdb_get(endpoint, params=None):
 # SEARCH MEDIA
 # ============================================================
 
-def search_media(query):
+def search_media(
+    query,
+):
+    """
+    Search TMDB for a movie or TV series.
+    """
 
     query = str(query).strip()
 
@@ -105,7 +134,7 @@ def search_media(query):
             "/search/multi",
             {
                 "query": query,
-                "language": "en-US",
+                "language": TMDB_LANGUAGE,
                 "include_adult": "false",
                 "page": 1,
             },
@@ -124,20 +153,39 @@ def search_media(query):
         [],
     )
 
+    allowed = {
+        "movie",
+        "tv",
+    }
+
     results = [
         item
         for item in results
-        if item.get("media_type")
-        in ("movie", "tv")
+        if item.get("media_type") in allowed
     ]
 
     if not results:
         return None
 
+    # --------------------------------------------------------
+    # Prefer:
+    # 1. Poster
+    # 2. Backdrop
+    # 3. Popularity
+    # --------------------------------------------------------
+
     results.sort(
         key=lambda item: (
-            bool(item.get("poster_path")),
-            bool(item.get("backdrop_path")),
+            bool(
+                item.get(
+                    "poster_path"
+                )
+            ),
+            bool(
+                item.get(
+                    "backdrop_path"
+                )
+            ),
             float(
                 item.get(
                     "popularity",
@@ -160,7 +208,7 @@ def search_media(query):
     media["media_type"] = media_type
 
     # ========================================================
-    # FULL DETAILS
+    # COMPLETE DETAILS
     # ========================================================
 
     try:
@@ -168,7 +216,7 @@ def search_media(query):
         details = tmdb_get(
             f"/{media_type}/{item['id']}",
             {
-                "language": "en-US",
+                "language": TMDB_LANGUAGE,
             },
         )
 
@@ -194,7 +242,7 @@ def search_media(query):
         media["watch_providers"] = (
             providers.get(
                 "results",
-                {},
+                {}
             )
         )
 
@@ -214,13 +262,18 @@ def search_media(query):
 # EXTRACT TITLE FROM OTT URL
 # ============================================================
 
-def extract_title_from_url(url):
+def extract_title_from_url(
+    url,
+):
+    """
+    Extract movie/series title from an OTT page.
+    """
 
     try:
 
         response = SESSION.get(
             url,
-            timeout=20,
+            timeout=REQUEST_TIMEOUT,
         )
 
         response.raise_for_status()
@@ -228,9 +281,19 @@ def extract_title_from_url(url):
         source = response.text
 
         patterns = [
-            r'<meta[^>]+property=["\']og:title["\'][^>]+content=["\']([^"\']+)["\']',
-            r'<meta[^>]+content=["\']([^"\']+)["\'][^>]+property=["\']og:title["\']',
-            r'<meta[^>]+name=["\']twitter:title["\'][^>]+content=["\']([^"\']+)["\']',
+
+            # OpenGraph
+            r'<meta[^>]+property=["\']og:title["\']'
+            r'[^>]+content=["\']([^"\']+)["\']',
+
+            r'<meta[^>]+content=["\']([^"\']+)["\']'
+            r'[^>]+property=["\']og:title["\']',
+
+            # Twitter
+            r'<meta[^>]+name=["\']twitter:title["\']'
+            r'[^>]+content=["\']([^"\']+)["\']',
+
+            # HTML title
             r"<title[^>]*>(.*?)</title>",
         ]
 
@@ -258,11 +321,17 @@ def extract_title_from_url(url):
             if not title:
                 continue
 
+            # ------------------------------------------------
+            # Remove common platform suffixes
+            # ------------------------------------------------
+
             title = re.sub(
                 r"\s*[\|\-–—]\s*"
-                r"(Netflix|Prime Video|"
+                r"(Netflix|"
+                r"Prime Video|"
                 r"Amazon Prime Video|"
-                r"JioHotstar|Hotstar|"
+                r"JioHotstar|"
+                r"Hotstar|"
                 r"YouTube|"
                 r"Google Play Movies|"
                 r"Disney\+|"
@@ -282,7 +351,7 @@ def extract_title_from_url(url):
         )
 
     # ========================================================
-    # URL FALLBACK
+    # FALLBACK: URL SLUG
     # ========================================================
 
     try:
@@ -327,7 +396,12 @@ def extract_title_from_url(url):
 # PLATFORM NORMALIZATION
 # ============================================================
 
-def normalize_platform_name(name):
+def normalize_platform_name(
+    name,
+):
+    """
+    Convert TMDB provider names to clean names.
+    """
 
     if not name:
         return None
@@ -353,10 +427,16 @@ def normalize_platform_name(name):
         "jiohotstar":
             "JioHotstar",
 
+        "jio hotstar":
+            "JioHotstar",
+
         "hotstar":
             "JioHotstar",
 
         "youtube":
+            "YouTube",
+
+        "youtube premium":
             "YouTube",
 
         "google play movies":
@@ -383,6 +463,9 @@ def normalize_platform_name(name):
         "sonyliv":
             "SonyLIV",
 
+        "sony liv":
+            "SonyLIV",
+
         "aha":
             "aha",
 
@@ -395,27 +478,55 @@ def normalize_platform_name(name):
 
     return mappings.get(
         value,
-        str(name),
+        str(name).strip(),
     )
 
 
 # ============================================================
-# AVAILABLE PLATFORM
-#
-# IMPORTANT:
-# This selects ONE platform only.
-#
-# Priority:
-# Prime Video
-# Netflix
-# JioHotstar
-# Disney+
-# YouTube
-# Google Play Movies
-# etc.
+# PROVIDER PRIORITY
 # ============================================================
 
-def get_available_platform(media):
+PLATFORM_PRIORITY = [
+
+    "Prime Video",
+
+    "Netflix",
+
+    "JioHotstar",
+
+    "Disney+",
+
+    "YouTube",
+
+    "Google Play Movies",
+
+    "Apple TV+",
+
+    "ZEE5",
+
+    "SonyLIV",
+
+    "aha",
+
+    "MX Player",
+
+    "MUBI",
+]
+
+
+# ============================================================
+# GET AVAILABLE PLATFORM
+# ============================================================
+
+def get_available_platform(
+    media,
+):
+    """
+    Get exactly ONE platform from TMDB.
+
+    India is preferred.
+    US is used as fallback.
+    """
 
     providers = media.get(
         "watch_providers",
@@ -427,6 +538,10 @@ def get_available_platform(media):
         dict,
     ):
         return None
+
+    # --------------------------------------------------------
+    # Prefer India
+    # --------------------------------------------------------
 
     country_data = (
         providers.get("IN")
@@ -440,70 +555,82 @@ def get_available_platform(media):
     ):
         return None
 
-    groups = [
+    # --------------------------------------------------------
+    # Provider groups
+    # --------------------------------------------------------
+
+    provider_groups = [
+
         country_data.get(
             "flatrate",
             [],
         ),
+
         country_data.get(
             "free",
             [],
         ),
+
         country_data.get(
             "ads",
             [],
         ),
+
         country_data.get(
             "rent",
             [],
         ),
+
         country_data.get(
             "buy",
             [],
         ),
     ]
 
-    preferred = [
-        "Prime Video",
-        "Netflix",
-        "JioHotstar",
-        "Disney+",
-        "YouTube",
-        "Google Play Movies",
-        "Apple TV+",
-        "ZEE5",
-        "SonyLIV",
-        "aha",
-        "MX Player",
-        "MUBI",
-    ]
-
     found = []
 
-    for group in groups:
+    for group in provider_groups:
 
-        for provider in group or []:
+        if not isinstance(
+            group,
+            list,
+        ):
+            continue
 
-            provider_name = (
+        for provider in group:
+
+            if not isinstance(
+                provider,
+                dict,
+            ):
+                continue
+
+            name = normalize_platform_name(
                 provider.get(
                     "provider_name"
                 )
-            )
-
-            name = normalize_platform_name(
-                provider_name
             )
 
             if (
                 name
                 and name not in found
             ):
-                found.append(name)
+                found.append(
+                    name
+                )
 
-    for preferred_name in preferred:
+    # --------------------------------------------------------
+    # Select ONE according to priority
+    # --------------------------------------------------------
 
-        if preferred_name in found:
-            return preferred_name
+    for preferred in PLATFORM_PRIORITY:
+
+        if preferred in found:
+            return preferred
+
+    # --------------------------------------------------------
+    # Fallback to first provider
+    # --------------------------------------------------------
 
     if found:
         return found[0]
@@ -519,6 +646,9 @@ def build_platform_url(
     platform,
     title,
 ):
+    """
+    Build a platform search URL.
+    """
 
     if not platform or not title:
         return None
@@ -531,6 +661,10 @@ def build_platform_url(
         platform.lower()
     )
 
+    # --------------------------------------------------------
+    # Prime Video
+    # --------------------------------------------------------
+
     if platform_lower == "prime video":
 
         return (
@@ -539,12 +673,20 @@ def build_platform_url(
             + encoded
         )
 
+    # --------------------------------------------------------
+    # Netflix
+    # --------------------------------------------------------
+
     if platform_lower == "netflix":
 
         return (
             "https://www.netflix.com/search?q="
             + encoded
         )
+
+    # --------------------------------------------------------
+    # JioHotstar
+    # --------------------------------------------------------
 
     if platform_lower == "jiohotstar":
 
@@ -553,22 +695,32 @@ def build_platform_url(
             + encoded
         )
 
+    # --------------------------------------------------------
+    # YouTube
+    # --------------------------------------------------------
+
     if platform_lower == "youtube":
 
         return (
-            "https://www.youtube.com/results"
-            "?search_query="
+            "https://www.youtube.com/results?search_query="
             + encoded
         )
+
+    # --------------------------------------------------------
+    # Google Play Movies
+    # --------------------------------------------------------
 
     if platform_lower == "google play movies":
 
         return (
-            "https://play.google.com/store/search"
-            "?q="
+            "https://play.google.com/store/search?q="
             + encoded
             + "&c=movies"
         )
+
+    # --------------------------------------------------------
+    # Disney+
+    # --------------------------------------------------------
 
     if platform_lower == "disney+":
 
@@ -577,12 +729,20 @@ def build_platform_url(
             + encoded
         )
 
+    # --------------------------------------------------------
+    # Apple TV+
+    # --------------------------------------------------------
+
     if platform_lower == "apple tv+":
 
         return (
             "https://tv.apple.com/search?term="
             + encoded
         )
+
+    # --------------------------------------------------------
+    # ZEE5
+    # --------------------------------------------------------
 
     if platform_lower == "zee5":
 
@@ -591,12 +751,20 @@ def build_platform_url(
             + encoded
         )
 
+    # --------------------------------------------------------
+    # SonyLIV
+    # --------------------------------------------------------
+
     if platform_lower == "sonyliv":
 
         return (
             "https://www.sonyliv.com/search/"
             + encoded
         )
+
+    # --------------------------------------------------------
+    # Generic fallback
+    # --------------------------------------------------------
 
     return (
         "https://www.google.com/search?q="
@@ -607,58 +775,180 @@ def build_platform_url(
 
 
 # ============================================================
-# ARTWORK TYPE
+# GET DISPLAY TITLE
 # ============================================================
 
-def artwork_type_label(
-    item_type
+def get_media_title(
+    media,
 ):
+    """
+    Get the best available title.
+    """
 
-    mapping = {
-
-        "poster":
-            "Poster",
-
-        "cover":
-            "Cover",
-
-        "portrait":
-            "Portrait",
-
-        "season":
-            "Portrait",
-
-    }
-
-    return mapping.get(
-        item_type,
-        "Poster",
+    return (
+        media.get("title")
+        or media.get("name")
+        or media.get("original_title")
+        or media.get("original_name")
+        or "Unknown"
     )
 
 
 # ============================================================
-# BUILD NAVIGATION ITEMS
-#
-# The navigation now contains:
-#
-# 1. Poster
-# 2. Cover
-# 3. Portrait / Season
-#
-# Each item contains:
-#
-# type
-# artwork_type
-# url
-# label
+# GET YEAR
 # ============================================================
 
-def build_navigation_items(media):
+def get_media_year(
+    media,
+):
+    """
+    Get release / first-air year.
+    """
+
+    release_date = (
+        media.get("release_date")
+        or media.get("first_air_date")
+        or ""
+    )
+
+    if release_date:
+        return str(
+            release_date
+        )[:4]
+
+    return ""
+
+
+# ============================================================
+# GET ARTWORK LABEL
+# ============================================================
+
+def get_item_label(
+    item,
+):
+    """
+    Return:
+      Poster
+      Cover
+      Season 1
+      Season 2
+      etc.
+    """
+
+    item_type = (
+        item.get("type")
+        or ""
+    ).lower()
+
+    # --------------------------------------------------------
+    # Main poster
+    # --------------------------------------------------------
+
+    if item_type == "poster":
+        return "Poster"
+
+    # --------------------------------------------------------
+    # Cover
+    # --------------------------------------------------------
+
+    if item_type == "cover":
+        return "Cover"
+
+    # --------------------------------------------------------
+    # Season
+    # --------------------------------------------------------
+
+    if item_type == "season":
+
+        season = item.get(
+            "season",
+            {},
+        )
+
+        if isinstance(
+            season,
+            dict,
+        ):
+
+            season_number = (
+                season.get(
+                    "season_number"
+                )
+            )
+
+            if (
+                season_number is not None
+                and season_number > 0
+            ):
+
+                return (
+                    f"Season {season_number}"
+                )
+
+            season_name = (
+                season.get(
+                    "name"
+                )
+            )
+
+            if season_name:
+                return str(
+                    season_name
+                )
+
+        label = item.get(
+            "label"
+        )
+
+        if label:
+            return str(
+                label
+            )
+
+        return "Season"
+
+    # --------------------------------------------------------
+    # Fallback
+    # --------------------------------------------------------
+
+    label = item.get(
+        "label"
+    )
+
+    if label:
+        return str(
+            label
+        )
+
+    return "Poster"
+
+
+# ============================================================
+# BUILD NAVIGATION ITEMS
+# ============================================================
+
+def build_navigation_items(
+    media,
+):
+    """
+    Build all artwork that the user can browse.
+
+    Order:
+      1. Poster
+      2. Cover
+      3. Season 1
+      4. Season 2
+      5. Season 3...
+    """
 
     items = []
 
     if not media:
         return items
+
+    media_type = media.get(
+        "media_type"
+    )
 
     # ========================================================
     # MAIN POSTER
@@ -673,18 +963,18 @@ def build_navigation_items(media):
         items.append(
             {
                 "type": "poster",
-                "artwork_type": "Poster",
+
                 "url": (
                     TMDB_IMAGE_URL
                     + poster_path
                 ),
+
                 "label": "Poster",
-                "source": "TMDB",
             }
         )
 
     # ========================================================
-    # BACKDROP / COVER
+    # COVER
     # ========================================================
 
     backdrop_path = media.get(
@@ -696,88 +986,125 @@ def build_navigation_items(media):
         items.append(
             {
                 "type": "cover",
-                "artwork_type": "Cover",
+
                 "url": (
                     TMDB_IMAGE_URL
                     + backdrop_path
                 ),
+
                 "label": "Cover",
-                "source": "TMDB",
             }
         )
 
     # ========================================================
-    # TV SEASON POSTERS
+    # TV SEASONS
     # ========================================================
 
-    if media.get(
-        "media_type"
-    ) == "tv":
+    if media_type == "tv":
 
         seasons = media.get(
             "seasons",
             [],
         )
 
-        for season in seasons:
+        if isinstance(
+            seasons,
+            list,
+        ):
 
-            season_number = season.get(
-                "season_number"
+            # Sort by season number.
+            seasons = sorted(
+                seasons,
+                key=lambda season: (
+                    season.get(
+                        "season_number",
+                        0,
+                    )
+                    or 0
+                ),
             )
 
-            if season_number == 0:
-                continue
+            for season in seasons:
 
-            season_poster = season.get(
-                "poster_path"
-            )
+                if not isinstance(
+                    season,
+                    dict,
+                ):
+                    continue
 
-            if not season_poster:
-                continue
+                season_number = (
+                    season.get(
+                        "season_number"
+                    )
+                )
 
-            season_name = season.get(
-                "name",
-                f"Season {season_number}",
-            )
+                # Skip specials.
+                if season_number == 0:
+                    continue
 
-            items.append(
-                {
-                    "type": "season",
-                    "artwork_type": "Portrait",
-                    "url": (
-                        TMDB_IMAGE_URL
-                        + season_poster
-                    ),
-                    "label": season_name,
-                    "source": "TMDB",
-                    "season": season,
-                }
-            )
+                season_poster = (
+                    season.get(
+                        "poster_path"
+                    )
+                )
+
+                if not season_poster:
+                    continue
+
+                items.append(
+                    {
+                        "type": "season",
+
+                        "url": (
+                            TMDB_IMAGE_URL
+                            + season_poster
+                        ),
+
+                        "label": season.get(
+                            "name",
+                            f"Season {season_number}",
+                        ),
+
+                        "season": season,
+                    }
+                )
 
     return items
 
 
 # ============================================================
-# CREATE 5:4 THUMBNAIL
+# CREATE EXACT 5:4 THUMBNAIL
 #
-# IMPORTANT:
-#
-# The original poster is NOT stretched.
-#
-# It is center-cropped into EXACTLY:
+# Output:
 #
 # 1000 x 800
 #
-# = 5:4
+# EXACT 5:4
 #
-# No 16:9.
-# No long thumbnail.
+# IMPORTANT:
+#
+# We DO NOT use a center crop.
+#
+# The complete source artwork is fitted
+# inside the 1000x800 canvas.
+#
+# This prevents:
+# - Faces being cut
+# - Poster text being cut
+# - Character heads being cut
+# - Important artwork being lost
+#
+# The image is NEVER stretched.
 # ============================================================
 
 def create_thumbnail(
     image_url,
-    title,
+    title=None,
 ):
+    """
+    Download artwork and create
+    an exact 1000x800 thumbnail.
+    """
 
     try:
 
@@ -798,85 +1125,155 @@ def create_thumbnail(
             source.size
         )
 
-        target_ratio = (
+        if (
+            source_width <= 0
+            or source_height <= 0
+        ):
+            return None
+
+        # ====================================================
+        # TARGET 5:4
+        # ====================================================
+
+        target_width = (
             THUMB_WIDTH
-            / THUMB_HEIGHT
         )
 
-        source_ratio = (
-            source_width
-            / source_height
+        target_height = (
+            THUMB_HEIGHT
         )
 
         # ====================================================
-        # CROP WIDTH
+        # FIT IMAGE INSIDE 1000x800
+        #
+        # Complete image remains visible.
         # ====================================================
 
-        if source_ratio > target_ratio:
+        scale = min(
+            target_width
+            / source_width,
 
-            new_width = int(
-                source_height
-                * target_ratio
-            )
+            target_height
+            / source_height,
+        )
 
-            left = (
+        new_width = max(
+            1,
+            int(
                 source_width
-                - new_width
-            ) // 2
+                * scale
+            ),
+        )
 
-            source = source.crop(
-                (
-                    left,
-                    0,
-                    left + new_width,
-                    source_height,
-                )
-            )
-
-        # ====================================================
-        # CROP HEIGHT
-        # ====================================================
-
-        elif source_ratio < target_ratio:
-
-            new_height = int(
-                source_width
-                / target_ratio
-            )
-
-            top = (
+        new_height = max(
+            1,
+            int(
                 source_height
-                - new_height
-            ) // 2
+                * scale
+            ),
+        )
 
-            source = source.crop(
-                (
-                    0,
-                    top,
-                    source_width,
-                    top + new_height,
-                )
-            )
-
-        # ====================================================
-        # EXACT 5:4
-        # ====================================================
-
-        source = source.resize(
+        resized = source.resize(
             (
-                THUMB_WIDTH,
-                THUMB_HEIGHT,
+                new_width,
+                new_height,
             ),
             Image.Resampling.LANCZOS,
         )
 
+        # ====================================================
+        # BACKGROUND
+        #
+        # Use average dark background from
+        # the source artwork.
+        # ====================================================
+
+        try:
+
+            small = source.resize(
+                (
+                    1,
+                    1,
+                ),
+                Image.Resampling.BILINEAR,
+            )
+
+            background_color = (
+                small.getpixel(
+                    (
+                        0,
+                        0,
+                    )
+                )
+            )
+
+            # Darken the average color.
+            background_color = tuple(
+                max(
+                    0,
+                    int(
+                        value
+                        * 0.45
+                    ),
+                )
+                for value in background_color
+            )
+
+        except Exception:
+
+            background_color = (
+                25,
+                25,
+                25,
+            )
+
+        # ====================================================
+        # CREATE EXACT 1000x800 CANVAS
+        # ====================================================
+
+        canvas = Image.new(
+            "RGB",
+            (
+                target_width,
+                target_height,
+            ),
+            background_color,
+        )
+
+        # ====================================================
+        # CENTER IMAGE
+        # ====================================================
+
+        x = (
+            target_width
+            - new_width
+        ) // 2
+
+        y = (
+            target_height
+            - new_height
+        ) // 2
+
+        canvas.paste(
+            resized,
+            (
+                x,
+                y,
+            ),
+        )
+
+        # ====================================================
+        # JPEG OUTPUT
+        # ====================================================
+
         output = io.BytesIO()
 
-        source.save(
+        canvas.save(
             output,
             format="JPEG",
             quality=94,
             optimize=True,
+            progressive=True,
         )
 
         output.seek(0)
@@ -899,13 +1296,12 @@ def create_thumbnail(
 #
 # 🎬 Prime Video Poster: Click Here
 #
-# 🖼 Artwork: Poster
-#
 # Iron Man - (2008)
 #
 # Powered by @Aero_Unity.
 #
-# ONLY ONE PLATFORM IS SHOWN.
+#
+# Only ONE platform is displayed.
 # ============================================================
 
 def build_caption(
@@ -913,51 +1309,62 @@ def build_caption(
     platform,
     item,
 ):
+    """
+    Build final Telegram caption.
+    """
 
-    title = (
-        media.get("title")
-        or media.get("name")
-        or media.get("original_title")
-        or media.get("original_name")
-        or "Unknown"
+    # ========================================================
+    # TITLE
+    # ========================================================
+
+    title = get_media_title(
+        media
     )
 
-    release_date = (
-        media.get("release_date")
-        or media.get("first_air_date")
-        or ""
+    year = get_media_year(
+        media
     )
 
-    year = ""
+    # ========================================================
+    # ARTWORK TYPE
+    # ========================================================
 
-    if release_date:
-        year = str(
-            release_date
-        )[:4]
-
-    season = item.get(
-        "season"
+    artwork_label = get_item_label(
+        item
     )
+
+    # ========================================================
+    # DISPLAY TITLE
+    # ========================================================
 
     display_title = title
 
-    if season:
-
-        season_name = season.get(
-            "name",
-            "",
-        )
-
-        if season_name:
-
-            display_title = (
-                f"{title} - {season_name}"
-            )
-
-    if year:
+    if artwork_label.lower().startswith(
+        "season "
+    ):
 
         display_title = (
-            f"{display_title} - ({year})"
+            f"{title} - {artwork_label}"
+        )
+
+    elif year:
+
+        display_title = (
+            f"{title} - ({year})"
+        )
+
+    # For season, add year after season title.
+    if (
+        artwork_label.lower().startswith(
+            "season "
+        )
+        and year
+    ):
+
+        display_title = (
+            f"{title} - "
+            f"{artwork_label} "
+            f"- ({year})"
         )
 
     # ========================================================
@@ -966,6 +1373,13 @@ def build_caption(
 
     selected_platform = None
 
+    # --------------------------------------------------------
+    # 1. Platform explicitly supplied
+    #
+    # Example:
+    # /ott Netflix URL
+    # --------------------------------------------------------
+
     if platform:
 
         selected_platform = (
@@ -973,6 +1387,10 @@ def build_caption(
                 platform
             )
         )
+
+    # --------------------------------------------------------
+    # 2. Otherwise TMDB provider
+    # --------------------------------------------------------
 
     if not selected_platform:
 
@@ -983,22 +1401,13 @@ def build_caption(
         )
 
     # ========================================================
-    # ARTWORK TYPE
+    # CAPTION
     # ========================================================
-
-    artwork_type = (
-        item.get(
-            "artwork_type"
-        )
-        or artwork_type_label(
-            item.get("type")
-        )
-    )
 
     lines = []
 
     # ========================================================
-    # PLATFORM
+    # ONE PLATFORM
     # ========================================================
 
     if selected_platform:
@@ -1012,33 +1421,48 @@ def build_caption(
 
         if platform_url:
 
-            safe_platform = html.escape(
-                selected_platform
+            safe_platform = (
+                html.escape(
+                    selected_platform
+                )
+            )
+
+            safe_artwork = (
+                html.escape(
+                    artwork_label
+                )
+            )
+
+            safe_url = (
+                html.escape(
+                    platform_url,
+                    quote=True,
+                )
             )
 
             lines.append(
-                f"🎬 <b>{safe_platform} Poster:</b> "
-                f'<a href="{html.escape(platform_url)}">'
-                f"Click Here</a>"
+                f'🎬 <b>{safe_platform} '
+                f'{safe_artwork}:</b> '
+                f'<a href="{safe_url}">'
+                f'Click Here</a>'
             )
 
     # ========================================================
-    # ARTWORK TYPE
+    # EMPTY LINE
     # ========================================================
 
-    lines.append(
-        f"🖼 <b>Artwork:</b> "
-        f"{html.escape(artwork_type)}"
-    )
+    if lines:
 
-    lines.append("")
+        lines.append("")
 
     # ========================================================
     # TITLE
     # ========================================================
 
     lines.append(
-        f"<b>{html.escape(display_title)}</b>"
+        html.escape(
+            display_title
+        )
     )
 
     # ========================================================
@@ -1057,5 +1481,5 @@ def build_caption(
 
 
 # ============================================================
-# END poster.py
+# END OF poster.py
 # ============================================================
